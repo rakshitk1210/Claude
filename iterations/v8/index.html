@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude — v8 Iterate Canvas</title>
+  <style>
+    /* ── Fonts ──────────────────────────────────────────────────────────────── */
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+
+    /* ── Design tokens (from Figma v8) ─────────────────────────────────────── */
+    :root {
+      --bg-page:    #faf9f5;   /* warm cream page bg */
+      --bg-card:    #ffffff;
+      --bg-sec:     #f7f7f7;
+      --border:     #e7e8e9;
+      --border-neu: #353839;   /* dashed border on AI bubble */
+      --text-pri:   #141413;
+      --text-sec:   #73726c;
+      --text-greet: #3d3d3a;
+      --accent:     #c15f3f;   /* terracotta */
+      --blue:       #4f9ee8;
+      --blue-bg:    rgba(79,158,232,.08);
+      --dot-color:  #d9d8d4;
+      --shadow:     0 2px 24px rgba(0,0,0,.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-pri);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── App shell ──────────────────────────────────────────────────────────── */
+    .app { display: flex; height: 100vh; }
+
+    /* ── Sidebar — LIGHT (not dark like v7) ─────────────────────────────────── */
+    .sidebar {
+      width: 48px;
+      background: var(--bg-page);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0 14px;
+      flex-shrink: 0;
+      z-index: 40;
+    }
+    .sb-top  { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
+    .sb-btm  { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .sb-btn  {
+      width: 36px; height: 36px;
+      border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+      transition: background 120ms, color 120ms;
+    }
+    .sb-btn:hover  { background: rgba(0,0,0,.05); color: var(--text-pri); }
+    .sb-btn.active { color: var(--accent); }
+    .sb-divider { width: 20px; height: 1px; background: var(--border); margin: 4px 0; }
+    .user-av {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; color: white;
+      cursor: pointer; letter-spacing: .04em;
+    }
+
+    /* ── Main wrap ──────────────────────────────────────────────────────────── */
+    .main-wrap { flex: 1; position: relative; overflow: hidden; }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       HOME SCREEN
+       ═══════════════════════════════════════════════════════════════════════════ */
+    #home-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: var(--bg-page);
+      z-index: 20;
+      transition: opacity 240ms ease, transform 240ms ease;
+    }
+    #home-screen.hiding {
+      opacity: 0; transform: translateY(-14px); pointer-events: none;
+    }
+
+    .greeting-row {
+      display: flex; align-items: center; gap: 18px;
+      margin-bottom: 36px;
+    }
+    .greeting-logo { color: var(--accent); flex-shrink: 0; }
+    .greeting-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 48px; font-weight: 300;
+      color: var(--text-greet); letter-spacing: -.5px; line-height: 1.1;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       ITERATE SCREEN (canvas fills everything)
+       ═══════════════════════════════════════════════════════════════════════════ */
+    #iterate-screen {
+      position: absolute; inset: 0;
+      opacity: 0; pointer-events: none;
+      transition: opacity 260ms ease;
+    }
+    #iterate-screen.visible { opacity: 1; pointer-events: auto; }
+
+    /* Canvas pane fills all space */
+    #canvas-pane {
+      position: absolute; inset: 0;
+      background: var(--bg-page);
+      overflow: hidden;
+      cursor: default;
+      transition: background-image 350ms ease;
+    }
+    #canvas-pane.has-grid {
+      background-image: radial-gradient(circle, var(--dot-color) 1.2px, transparent 1.2px);
+      background-size: 22px 22px;
+    }
+
+    /* Canvas center greeting (visible in iterate mode before submit) */
+    #canvas-greeting {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0;
+      transition: opacity 300ms ease;
+    }
+    #canvas-greeting.show { opacity: 1; }
+    #canvas-greet-logo { color: var(--accent); margin-bottom: 20px; }
+    #canvas-greet-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 40px; font-weight: 400;
+      color: var(--text-greet); letter-spacing: -.4px; text-align: center;
+    }
+
+    /* Pannable / zoomable world */
+    #canvas-world {
+      position: absolute; top: 0; left: 0;
+      transform-origin: 0 0;
+      will-change: transform;
+      padding: 48px 48px 160px;
+    }
+    #canvas-layout {
+      position: relative;
+      min-width: 1100px; min-height: 700px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       INPUT BOX (shared component — used in home and canvas bar)
+       ═══════════════════════════════════════════════════════════════════════════ */
+    .input-wrap {
+      width: 752px; max-width: calc(100vw - 100px);
+      background: var(--bg-card);
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      padding: 20px 20px 14px;
+      box-shadow: var(--shadow);
+      display: flex; flex-direction: column; gap: 16px;
+      transition: box-shadow 150ms;
+    }
+    .input-wrap:focus-within {
+      box-shadow: 0 2px 24px rgba(0,0,0,.12), 0 0 0 1.5px rgba(0,0,0,.1);
+    }
+
+    .input-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 18px; font-weight: 500;
+      font-family: inherit; color: var(--text-pri);
+      resize: none; outline: none; line-height: 1.4;
+      min-height: 26px; max-height: 180px;
+      letter-spacing: -.36px;
+    }
+    .input-field::placeholder { color: var(--text-sec); font-weight: 400; }
+
+    /* Top row: selection badge + textarea */
+    .input-top { display: flex; align-items: flex-start; gap: 8px; min-height: 26px; }
+
+    /* Selection badge */
+    #sel-badge {
+      display: none; align-items: center; gap: 5px;
+      background: rgba(79,158,232,.14); color: #2873b5;
+      border-radius: 99px; padding: 3px 10px 3px 8px;
+      font-size: 12px; font-weight: 500;
+      white-space: nowrap; flex-shrink: 0; align-self: center;
+    }
+    #sel-badge.on { display: flex; }
+
+    /* Toolbar row */
+    .input-tb { display: flex; align-items: center; justify-content: space-between; }
+    .tb-left  { display: flex; align-items: center; gap: 10px; }
+    .tb-right { display: flex; align-items: center; gap: 10px; }
+
+    /* + button */
+    .plus-btn {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+      transition: border-color 100ms, color 100ms;
+    }
+    .plus-btn:hover { border-color: var(--text-sec); color: var(--text-pri); }
+
+    /* Ask / Iterate pill toggle */
+    .pill-group {
+      display: flex; align-items: center;
+      background: var(--bg-sec);
+      border-radius: 99px; padding: 2px; gap: 1px;
+    }
+    .pill {
+      padding: 4px 14px; border-radius: 99px;
+      border: none; cursor: pointer; font-family: inherit;
+      font-size: 13.5px; font-weight: 400;
+      letter-spacing: -.28px;
+      color: var(--text-sec); background: transparent;
+      transition: background 160ms, color 160ms;
+    }
+    .pill.active { background: var(--text-pri); color: white; }
+
+    /* Model selector */
+    .model-sel {
+      display: flex; align-items: center; gap: 4px;
+      border: none; background: transparent; cursor: pointer;
+      font-family: inherit; font-size: 15px; color: var(--text-sec);
+      letter-spacing: -.32px;
+      transition: color 100ms;
+    }
+    .model-sel:hover { color: var(--text-pri); }
+    .model-sel b { color: var(--text-pri); font-weight: 500; }
+
+    /* Voice button */
+    .voice-btn {
+      color: var(--text-sec); background: transparent; border: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: color 100ms;
+    }
+    .voice-btn:hover { color: var(--text-pri); }
+
+    /* Send button */
+    .send-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 120ms, transform 80ms;
+    }
+    .send-btn.ready    { background: var(--accent); color: white; }
+    .send-btn.stop     { background: var(--text-pri); color: white; }
+    .send-btn.disabled { background: #d6d4cf; color: white; cursor: not-allowed; opacity: .7; }
+    .send-btn:not(.disabled):active { transform: scale(.9); }
+
+    /* Canvas floating input bar */
+    #canvas-input-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      display: flex; justify-content: center;
+      padding: 0 48px 28px;
+      z-index: 30;
+      pointer-events: none;
+    }
+    #canvas-input-bar .input-wrap { pointer-events: auto; }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       CANVAS PANELS
+       ═══════════════════════════════════════════════════════════════════════════ */
+    .canvas-card {
+      position: absolute;
+      background: var(--bg-card);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      transition: border-color 160ms, box-shadow 160ms;
+    }
+    .canvas-card.selected {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(79,158,232,.12);
+    }
+    .canvas-card.is-dragging {
+      box-shadow: 0 14px 36px rgba(0,0,0,.13), 0 0 0 1px rgba(0,0,0,.06);
+      z-index: 20;
+    }
+
+    /* Version card */
+    .ver-card { width: 490px; padding: 24px; }
+    .ver-title {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 22px; font-weight: 400;
+      color: var(--text-pri); margin-bottom: 20px;
+      letter-spacing: .2px; line-height: 1.25;
+    }
+    .ver-body {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 15.5px; font-weight: 400;
+      color: var(--text-pri); line-height: 1.78;
+      outline: none; border-radius: 4px;
+    }
+    .ver-body[contenteditable="true"] { cursor: text; }
+    .ver-body[contenteditable="true"]:focus {
+      box-shadow: 0 0 0 2px rgba(79,158,232,.2);
+    }
+    .ver-body p + p { margin-top: 14px; }
+
+    /* AI reasoning bubble */
+    .ai-bubble {
+      width: 281px;
+      background: var(--bg-sec);
+      border: 1px dashed var(--border-neu);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .ai-bubble-row {
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+    .ai-bubble-logo { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+    .ai-bubble-text {
+      font-size: 15px; color: var(--text-sec);
+      line-height: 1.45; letter-spacing: -.28px;
+    }
+
+    /* Sticky note */
+    .note-card {
+      width: 290px; padding: 14px 16px;
+      background: #fffef5;
+      border: 1.5px solid #e3d98a;
+    }
+    .note-hd {
+      display: flex; align-items: baseline; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .note-label {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .1em; color: #b09d30;
+    }
+    .note-attr { font-size: 11px; color: var(--text-sec); }
+    .note-ta {
+      width: 100%; border: none; background: transparent; outline: none;
+      font-size: 13.5px; font-family: 'Tiempos Headline', Georgia, serif;
+      color: var(--text-pri); line-height: 1.65;
+      resize: none; min-height: 68px; max-height: 220px;
+    }
+    .note-ta::placeholder { color: #c4ba6a; font-style: italic; }
+
+    /* File card */
+    .file-card { width: 290px; padding: 14px 16px; }
+    .file-row { display: flex; align-items: center; gap: 12px; }
+    .file-icon {
+      width: 40px; height: 40px; border-radius: 8px;
+      background: var(--bg-sec); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+    }
+    .file-meta { flex: 1; min-width: 0; }
+    .file-name {
+      font-size: 13px; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .file-type { font-size: 11.5px; color: var(--text-sec); }
+
+    /* Link card */
+    .link-card { width: 290px; padding: 14px 16px; }
+    .link-row { display: flex; align-items: flex-start; gap: 12px; }
+    .link-icon {
+      width: 40px; height: 40px; border-radius: 8px;
+      background: var(--bg-sec); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+    }
+    .link-meta { flex: 1; min-width: 0; }
+    .link-url {
+      font-size: 12px; color: var(--blue);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-decoration: none; display: block; margin-bottom: 3px;
+    }
+    .link-attr { font-size: 11px; color: var(--text-sec); }
+
+    /* ── Skeleton lines ──────────────────────────────────────────────────────── */
+    .skel-group { margin-bottom: 22px; }
+    .skel-group:last-child { margin-bottom: 0; }
+    .skel {
+      height: 19px; border-radius: 999px; margin-bottom: 10px;
+      background: linear-gradient(90deg,
+        rgba(255,255,255,.5) 20%,
+        rgba(220,220,215,.7) 32%,
+        rgba(255,255,255,.5) 47%,
+        rgba(250,249,245,.5) 65%,
+        rgba(255,255,255,.5) 80%),
+        linear-gradient(90deg, #f0efe9, #f0efe9);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    .skel:last-child { width: 80% !important; margin-bottom: 0; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* Stream cursor */
+    .scursor {
+      display: inline-block; width: 2px; height: 14px;
+      background: var(--text-sec); border-radius: 1px;
+      vertical-align: text-bottom; margin-left: 1px;
+      animation: blink .85s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Canvas tools (top-right context panel) ─────────────────────────────── */
+    #canvas-tools {
+      position: absolute; top: 16px; right: 16px;
+      display: flex; align-items: center; gap: 2px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 4px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.06);
+      z-index: 10;
+      opacity: 0; pointer-events: none;
+      transition: opacity 220ms;
+    }
+    #canvas-tools.show { opacity: 1; pointer-events: auto; }
+    .tool-btn {
+      width: 30px; height: 30px; border-radius: 7px;
+      border: none; background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+      transition: background 90ms, color 90ms;
+    }
+    .tool-btn:hover { background: var(--bg-sec); color: var(--text-pri); }
+    .tool-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+
+    /* ── Feedback toolbar (bottom-right) ────────────────────────────────────── */
+    #feedback-tb {
+      position: absolute; bottom: 30px; right: 24px;
+      display: flex; align-items: center; gap: 8px;
+      z-index: 10;
+      opacity: 0; pointer-events: none;
+      transition: opacity 220ms;
+    }
+    #feedback-tb.show { opacity: 1; pointer-events: auto; }
+    .stepper {
+      display: flex; align-items: center;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 99px; padding: 4px 8px; gap: 2px;
+      height: 40px;
+    }
+    .stepper-btn {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: none; background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+      transition: background 90ms, color 90ms;
+    }
+    .stepper-btn:hover { background: var(--bg-sec); color: var(--text-pri); }
+    #zoom-pct {
+      min-width: 38px; text-align: center;
+      font-size: 13px; font-weight: 500; letter-spacing: -.2px;
+      color: var(--text-pri); cursor: pointer;
+      border: none; background: transparent; font-family: inherit;
+      border-radius: 5px; padding: 2px 4px;
+      transition: background 90ms;
+    }
+    #zoom-pct:hover { background: var(--bg-sec); }
+    .fb-btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--bg-card);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+      transition: background 90ms, color 90ms;
+    }
+    .fb-btn:hover { background: var(--bg-sec); color: var(--text-pri); }
+
+    /* ── Rubber-band selection rect ─────────────────────────────────────────── */
+    #rubber-band {
+      position: fixed; z-index: 200;
+      pointer-events: none;
+      border: 1.5px solid var(--blue);
+      background: rgba(79,158,232,.07);
+      border-radius: 3px;
+      display: none;
+    }
+
+    /* ── Inline selection toolbar ────────────────────────────────────────────── */
+    #inline-sel-tb {
+      position: fixed; z-index: 400;
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-card);
+      border-radius: 12px; padding: 6px 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      opacity: 0; pointer-events: none;
+      transform: translateY(4px);
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+    #inline-sel-tb.show { opacity: 1; pointer-events: auto; transform: none; }
+
+    .ist-icon-btn {
+      width: 28px; height: 28px; border-radius: 6px;
+      border: none; background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: background 80ms, color 80ms;
+    }
+    .ist-icon-btn:hover { background: var(--bg-sec); color: var(--text-pri); }
+    .ist-sep { width: 1px; height: 16px; background: var(--border); margin: 0 2px; }
+
+    .ist-btn {
+      display: flex; align-items: center; gap: 5px;
+      height: 30px; padding: 0 14px 0 10px;
+      border-radius: 6px; border: 1px solid var(--border);
+      background: white; cursor: pointer; font-family: inherit;
+      font-size: 12px; font-weight: 600; color: var(--text-pri);
+      transition: background 80ms;
+    }
+    .ist-btn:hover { background: var(--bg-sec); }
+    .ist-btn.primary {
+      background: var(--accent); border-color: var(--accent);
+      color: white;
+    }
+    .ist-btn.primary:hover { background: #a84e2e; border-color: #a84e2e; }
+
+    /* ── Inline prompt card ──────────────────────────────────────────────────── */
+    #inline-prompt-card {
+      position: fixed; z-index: 401;
+      width: 360px;
+      background: white;
+      border-radius: 14px; padding: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.06);
+      opacity: 0; pointer-events: none;
+      transform: translateY(6px) scale(.98);
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+    #inline-prompt-card.show { opacity: 1; pointer-events: auto; transform: none; }
+    #ipc-field {
+      width: 100%; border: none; background: transparent; outline: none;
+      font-size: 14px; font-family: inherit; color: var(--text-pri);
+      resize: none; line-height: 1.55; min-height: 22px; max-height: 100px;
+      margin-bottom: 10px;
+    }
+    #ipc-field::placeholder { color: var(--text-sec); }
+    .ipc-row { display: flex; align-items: center; justify-content: space-between; }
+    #ipc-plus {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1.5px solid var(--border); background: white;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: border-color 100ms;
+    }
+    #ipc-plus:hover { border-color: var(--text-sec); }
+    #ipc-send {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: none; background: var(--accent); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 100ms, transform 80ms;
+    }
+    #ipc-send:hover { background: #a84e2e; }
+    #ipc-send:active { transform: scale(.9); }
+
+    .inline-skel { margin: 4px 0; }
+    .inline-skel .skel { height: 19px; margin-bottom: 10px; border-radius: 999px; }
+    .inline-skel .skel:last-child { width: 72% !important; }
+
+    /* ── Right-click context menu ────────────────────────────────────────────── */
+    #ctx-menu {
+      position: fixed; z-index: 500;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 4px;
+      min-width: 148px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.1), 0 1px 4px rgba(0,0,0,.06);
+      opacity: 0; pointer-events: none;
+      transform: scale(.96); transform-origin: top left;
+      transition: opacity 120ms ease, transform 120ms ease;
+    }
+    #ctx-menu.show { opacity: 1; pointer-events: auto; transform: none; }
+    #ctx-delete {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px; border-radius: 7px;
+      color: #d84040; cursor: pointer; font-size: 13.5px;
+      transition: background 80ms;
+    }
+    #ctx-delete:hover { background: #fff2f2; }
+
+    /* ── Keyboard shortcut hint ─────────────────────────────────────────────── */
+    .kbd-hint {
+      font-size: 10px; color: var(--text-sec);
+      background: var(--bg-sec); border-radius: 4px;
+      padding: 1px 4px; margin-left: 4px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Sidebar (light bg, matches Figma v8) ─────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sb-top">
+      <button class="sb-btn active" title="Layout">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M9 3v18"/>
+        </svg>
+      </button>
+      <button class="sb-btn" title="Search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.3-4.3"/>
+        </svg>
+      </button>
+      <button class="sb-btn" title="Projects">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+          <path d="M2 10h20"/>
+        </svg>
+      </button>
+      <button class="sb-btn" title="Conversations">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </button>
+      <div class="sb-divider"></div>
+      <button class="sb-btn" title="Starred">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      </button>
+    </div>
+    <div class="sb-btm">
+      <div class="user-av">RK</div>
+    </div>
+  </aside>
+
+  <!-- ── Main wrap ─────────────────────────────────────────────────────────── -->
+  <div class="main-wrap">
+
+    <!-- ════════════════════════════════════════════════════════════════════════
+         HOME SCREEN
+         ════════════════════════════════════════════════════════════════════════ -->
+    <div id="home-screen">
+      <div class="greeting-row">
+        <svg class="greeting-logo" width="44" height="44" viewBox="0 0 100 100" fill="currentColor">
+          <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+        </svg>
+        <span class="greeting-text">Good afternoon, Rakshit</span>
+      </div>
+
+      <!-- Home input -->
+      <div class="input-wrap" id="home-input-wrap">
+        <textarea class="input-field" id="home-field" placeholder="How can I help you today?" rows="1"></textarea>
+        <div class="input-tb">
+          <div class="tb-left">
+            <button class="plus-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+            <div class="pill-group">
+              <button class="pill active" id="pill-ask" data-pill="ask">Ask</button>
+              <button class="pill"        id="pill-iter" data-pill="iterate">Iterate</button>
+            </div>
+          </div>
+          <div class="tb-right">
+            <button class="model-sel">
+              <b>Opus 4.6</b>&nbsp;<span style="color:var(--text-sec)">Extended</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            </button>
+            <button class="voice-btn" id="home-voice">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/>
+              </svg>
+            </button>
+            <button class="send-btn disabled" id="home-send">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /home-screen -->
+
+    <!-- ════════════════════════════════════════════════════════════════════════
+         ITERATE SCREEN
+         ════════════════════════════════════════════════════════════════════════ -->
+    <div id="iterate-screen">
+
+      <!-- Canvas pane -->
+      <div id="canvas-pane">
+
+        <!-- Canvas center greeting (shown in iterate-ready state) -->
+        <div id="canvas-greeting">
+          <svg id="canvas-greet-logo" width="44" height="44" viewBox="0 0 100 100" fill="currentColor">
+            <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+          </svg>
+          <div id="canvas-greet-text">Let's craft something together!</div>
+        </div>
+
+        <!-- Pannable world -->
+        <div id="canvas-world">
+          <div id="canvas-layout"><!-- cards injected here --></div>
+        </div>
+
+        <!-- Context card add tools (top-right) -->
+        <div id="canvas-tools">
+          <button class="tool-btn" id="btn-note" title="Add sticky note (S)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/>
+              <path d="M15 3v6h6"/>
+            </svg>
+          </button>
+          <div class="tool-sep"></div>
+          <button class="tool-btn" id="btn-attach" title="Attach file">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <button class="tool-btn" id="btn-link" title="Add link (L)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Feedback / zoom toolbar (bottom-right) -->
+        <div id="feedback-tb">
+          <div class="stepper">
+            <button class="stepper-btn" id="zoom-out" title="Zoom out">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/>
+              </svg>
+            </button>
+            <button id="zoom-pct" title="Reset zoom (100%)">100%</button>
+            <button class="stepper-btn" id="zoom-in" title="Zoom in">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6M8 11h6"/>
+              </svg>
+            </button>
+          </div>
+          <button class="fb-btn" title="Copy">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+            </svg>
+          </button>
+          <button class="fb-btn" title="Export / share">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+              <polyline points="16 6 12 2 8 6"/>
+              <line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Floating input bar at bottom of canvas -->
+        <div id="canvas-input-bar">
+          <div class="input-wrap" id="canvas-input-wrap">
+            <div class="input-top">
+              <div id="sel-badge">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9 11 3 3L22 4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                <span id="sel-count">0</span>&nbsp;selected
+              </div>
+              <textarea class="input-field" id="canvas-field" placeholder="Reply…" rows="1"></textarea>
+            </div>
+            <div class="input-tb">
+              <div class="tb-left">
+                <button class="plus-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                </button>
+                <div class="pill-group">
+                  <button class="pill"        id="cpill-ask">Ask</button>
+                  <button class="pill active" id="cpill-iter">Iterate</button>
+                </div>
+              </div>
+              <div class="tb-right">
+                <button class="model-sel">
+                  <b>Opus 4.6</b>&nbsp;<span style="color:var(--text-sec)">Extended</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </button>
+                <button class="voice-btn" id="canvas-voice">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/>
+                  </svg>
+                </button>
+                <button class="send-btn disabled" id="canvas-send">
+                  <svg id="canvas-send-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 19V5M5 12l7-7 7 7"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /canvas-pane -->
+    </div><!-- /iterate-screen -->
+
+  </div><!-- /main-wrap -->
+</div><!-- /app -->
+
+<!-- Rubber-band selection overlay -->
+<div id="rubber-band"></div>
+
+<!-- ── Inline selection toolbar ───────────────────────────────────────────── -->
+<div id="inline-sel-tb">
+  <button class="ist-icon-btn" title="Like">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+  </button>
+  <button class="ist-icon-btn" title="Dislike">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>
+  </button>
+  <div class="ist-sep"></div>
+  <button id="ist-reply" class="ist-btn" title="Reply in chat">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+    Reply
+  </button>
+  <button id="ist-ask" class="ist-btn primary" title="Ask about selection">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Ask
+  </button>
+</div>
+
+<!-- ── Inline prompt card ──────────────────────────────────────────────────── -->
+<div id="inline-prompt-card">
+  <textarea id="ipc-field" rows="1" placeholder="What would you like to change?"></textarea>
+  <div class="ipc-row">
+    <button id="ipc-plus">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <button id="ipc-send">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ── Right-click context menu ────────────────────────────────────────────── -->
+<div id="ctx-menu">
+  <div id="ctx-delete">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+    Delete
+  </div>
+</div>
+
+<!-- ── JavaScript ──────────────────────────────────────────────────────────── -->
+<script>
+'use strict';
+
+// ── Cover letter content ───────────────────────────────────────────────────
+const V1_HTML = `<p>Dear Hiring Team,</p>
+<p>I'm writing to express my strong interest in the Product Designer role at Anthropic. The opportunity to shape how millions of people experience AI—designing interactions that don't yet have established conventions—is exactly the kind of design challenge I've spent my career preparing for.</p>
+<p>Anthropic's commitment to building AI that is reliable, interpretable, and steerable resonates deeply with how I approach design: with intention, rigor, and an unwavering focus on the people I'm designing for.</p>
+<p>Over the past several years, I've led end-to-end product design for complex platforms used at scale. I redesigned core workflow experiences, reducing time-on-task by 40% and increasing user retention by 25%. I thrive in environments where ambiguity is the starting point—where I need to understand emerging capabilities, prototype rapidly, and iterate toward clarity.</p>
+<p>What draws me to Anthropic is the design team's position at the intersection of craft, research, and product intuition. The idea of designing around capabilities that are still emerging—shaping whether Claude feels like a tool or a trusted collaborator—is a once-in-a-generation opportunity.</p>
+<p>I bring a strong craft sensibility paired with technical fluency. I prototype in code (HTML, CSS, JavaScript) to communicate ideas with the fidelity they deserve, and I stay close to the underlying technology so my design decisions reflect what's truly possible.</p>
+<p>I'd welcome the chance to share my portfolio and discuss how my experience could contribute to Anthropic's mission.</p>
+<p>Warm regards,<br>[Your Name]</p>`;
+
+const V2_HTML = `<p>Dear Hiring Team,</p>
+<p>I'm writing to express my strong interest in the Product Designer role at Anthropic. The opportunity to shape how millions of people experience AI—designing interactions that don't yet have established conventions—is exactly the kind of design challenge I've spent my career preparing for.</p>
+<p>Over the past five years, I've led end-to-end product design for complex, data-rich platforms at massive scale. As a Senior Product Designer at Groww—a trading platform serving over 60 million customers—I owned the Derivatives pod, building tools for professional traders managing high-frequency workflows. My flagship project, Option Chain, was a year-long initiative to design a customizable interface for real-time derivatives data. I shipped it in two phases—an MVP to validate core workflows, then a full rollout across terminal, web, and mobile.</p>
+<p>This experience of designing for speed, density, and trust under real-time constraints feels directly relevant to designing AI interfaces where responsiveness and clarity are everything.</p>
+<p>I got a taste of AI product design when I led the Trading APIs Platform at Groww—a product that lets traders build AI-powered agents and automated strategies. I designed it to manage AI's unpredictable outputs, clearly surfacing errors, states, and constraints in ways that kept users in control and confident.</p>
+<p>I bring strong craft paired with technical fluency—I prototype in code so ideas land with full fidelity. I deeply believe in Anthropic's mission and would be honored to help build the next generation of human-AI interaction.</p>
+<p>Warm regards,<br>Rakshit</p>`;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let appMode     = 'home';  // 'home' | 'iterate' | 'canvas'
+let isStreaming = false;
+let selectedCards = new Set();
+let versionIdx  = 0;
+
+// Canvas layout tracking
+let nextVersionX = 0;     // x for next version card
+let nextCtxY     = 0;     // y for context cards column (right of V1)
+const PANEL_W    = 490;
+const CTX_X_OFF  = 514;   // context col x = version_x + CTX_X_OFF
+const CTX_W      = 290;
+const CTX_GAP    = 14;
+const VER_STEP   = 870;   // horizontal step between V1 and V2
+
+// Camera
+let camX = 48, camY = 48, camScale = 1;
+const CAM_MIN = 0.1, CAM_MAX = 3;
+
+// Pan
+let spaceDown = false, isPanning = false, panOrigin = null;
+
+// Drag
+let dragCard = null, dragStartLeft = 0, dragStartTop = 0;
+let dragStartMouseX = 0, dragStartMouseY = 0;
+
+// Rubber band
+let rbActive = false, rbStartX = 0, rbStartY = 0;
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const homeScreen    = document.getElementById('home-screen');
+const iterScreen    = document.getElementById('iterate-screen');
+const canvasPane    = document.getElementById('canvas-pane');
+const canvasWorld   = document.getElementById('canvas-world');
+const canvasLayout  = document.getElementById('canvas-layout');
+const canvasGreet   = document.getElementById('canvas-greeting');
+const canvasTools   = document.getElementById('canvas-tools');
+const feedbackTb    = document.getElementById('feedback-tb');
+const canvasInputBar= document.getElementById('canvas-input-bar');
+const homeField     = document.getElementById('home-field');
+const homeSend      = document.getElementById('home-send');
+const homeVoice     = document.getElementById('home-voice');
+const canvasField   = document.getElementById('canvas-field');
+const canvasSend    = document.getElementById('canvas-send');
+const canvasVoice   = document.getElementById('canvas-voice');
+const selBadge      = document.getElementById('sel-badge');
+const selCount      = document.getElementById('sel-count');
+const rubberBand    = document.getElementById('rubber-band');
+
+// ── Home field auto-resize + button sync ──────────────────────────────────
+homeField.addEventListener('input', () => {
+  autoResize(homeField, 180);
+  syncSend(homeField, homeSend, homeVoice);
+});
+homeField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitHome(); }
+});
+homeSend.addEventListener('click', submitHome);
+
+canvasField.addEventListener('input', () => {
+  autoResize(canvasField, 140);
+  syncSend(canvasField, canvasSend, canvasVoice);
+});
+canvasField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitCanvas(); }
+});
+canvasSend.addEventListener('click', submitCanvas);
+
+function autoResize(el, max) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, max) + 'px';
+}
+
+function syncSend(field, sendBtn, voiceBtn) {
+  const has = field.value.trim().length > 0;
+  voiceBtn.style.display = has ? 'none' : '';
+  if (has) {
+    sendBtn.classList.remove('disabled', 'stop');
+    sendBtn.classList.add('ready');
+  } else {
+    sendBtn.classList.remove('ready', 'stop');
+    sendBtn.classList.add('disabled');
+  }
+}
+
+// ── Pill toggle (Ask / Iterate) ────────────────────────────────────────────
+document.getElementById('pill-ask').addEventListener('click', () => {
+  setHomePills('ask');
+});
+document.getElementById('pill-iter').addEventListener('click', () => {
+  setHomePills('iterate');
+  switchToIterate();
+});
+
+function setHomePills(active) {
+  document.getElementById('pill-ask').classList.toggle('active', active === 'ask');
+  document.getElementById('pill-iter').classList.toggle('active', active === 'iterate');
+}
+
+// ── Switch to Iterate screen ───────────────────────────────────────────────
+function switchToIterate() {
+  if (appMode !== 'home') return;
+  appMode = 'iterate';
+  homeScreen.classList.add('hiding');
+  setTimeout(() => {
+    iterScreen.classList.add('visible');
+    canvasPane.classList.add('has-grid');
+    canvasGreet.classList.add('show');
+    initCamera();
+    // Transfer any typed text
+    if (homeField.value.trim()) {
+      canvasField.value = homeField.value;
+      autoResize(canvasField, 140);
+      syncSend(canvasField, canvasSend, canvasVoice);
+    }
+    canvasField.focus();
+  }, 220);
+}
+
+// ── Submit from home ───────────────────────────────────────────────────────
+function submitHome() {
+  const text = homeField.value.trim();
+  if (!text || isStreaming) return;
+
+  if (appMode === 'home') {
+    // If iterate pill is active just go straight to canvas
+    const isIter = document.getElementById('pill-iter').classList.contains('active');
+    if (isIter) {
+      switchToIterate();
+      setTimeout(() => doGenerate(text), 320);
+    } else {
+      // Ask mode: still switch to canvas for this prototype
+      switchToIterate();
+      setTimeout(() => doGenerate(text), 320);
+    }
+  }
+}
+
+// ── Submit from canvas ─────────────────────────────────────────────────────
+function submitCanvas() {
+  const text = canvasField.value.trim();
+  if (!text || isStreaming) return;
+  doGenerate(text);
+}
+
+// ── Core generation flow ───────────────────────────────────────────────────
+function doGenerate(prompt) {
+  if (isStreaming) return;
+  isStreaming = true;
+
+  canvasField.value = '';
+  canvasField.style.height = 'auto';
+  syncSend(canvasField, canvasSend, canvasVoice);
+  homeField.value = '';
+
+  // Hide canvas greeting
+  canvasGreet.classList.remove('show');
+
+  // Show canvas chrome
+  canvasTools.classList.add('show');
+  feedbackTb.classList.add('show');
+
+  // Show stop button
+  canvasSend.classList.remove('disabled', 'ready');
+  canvasSend.classList.add('stop');
+  canvasSend.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
+
+  versionIdx++;
+  const vx = nextVersionX;
+  const label = `V${versionIdx} \u2022 Cover letter for Anthropic`;
+  const html   = versionIdx === 1 ? V1_HTML : V2_HTML;
+  const bubbleText = versionIdx === 1
+    ? 'Crafting the perfect cover letter for you…'
+    : 'Crafting a better version based on your inputs…';
+  const bubbleDone = versionIdx === 1
+    ? 'Here is a cover letter tailored for the Product Designer role at Anthropic.'
+    : 'Updated cover letter with richer context to suit your needs.';
+
+  // Create version card at vx
+  const verCard = createVersionCard(label, vx, 0);
+  canvasLayout.appendChild(verCard);
+  makeDraggable(verCard);
+
+  // Create AI bubble to the right of the version card
+  const bubble = createAiBubble(bubbleText, vx + PANEL_W + 24, 0);
+  canvasLayout.appendChild(bubble);
+
+  // Reserve space below the AI bubble so context cards don't overlap it
+  requestAnimationFrame(() => {
+    const bubbleH = bubble.offsetHeight || 80;
+    if (nextCtxY < bubbleH + CTX_GAP) {
+      nextCtxY = bubbleH + CTX_GAP;
+    }
+  });
+
+  // Auto-pan to show the new card
+  autoPanToCard(verCard);
+
+  // Update selection state
+  clearSelections();
+  appMode = 'canvas';
+
+  // After delay: stream content
+  setTimeout(() => {
+    const bodyEl = verCard.querySelector('.ver-body');
+    bodyEl.innerHTML = '';
+    const cursor = document.createElement('span');
+    cursor.className = 'scursor';
+    bodyEl.appendChild(cursor);
+
+    streamInto(bodyEl, cursor, html, () => {
+      // Streaming done
+      bodyEl.contentEditable = 'true';
+      isStreaming = false;
+      nextVersionX += VER_STEP;
+      // Reset send button
+      canvasSend.classList.remove('stop');
+      canvasSend.classList.add('disabled');
+      canvasSend.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
+      // Update bubble text
+      const bubbleTextEl = bubble.querySelector('.ai-bubble-text');
+      if (bubbleTextEl) bubbleTextEl.textContent = bubbleDone;
+    });
+  }, 950 + Math.random() * 300);
+}
+
+// ── Create version card (with skeleton) ───────────────────────────────────
+function createVersionCard(label, x, y) {
+  const card = document.createElement('div');
+  card.className = 'canvas-card ver-card';
+  card.id = 'card-' + Date.now();
+  card.style.left = x + 'px';
+  card.style.top  = y + 'px';
+
+  // Skeleton: 5 groups × 5 lines
+  let skelHtml = '';
+  for (let g = 0; g < 5; g++) {
+    skelHtml += '<div class="skel-group">';
+    for (let l = 0; l < 5; l++) {
+      const w = 80 + Math.floor(Math.random() * 18);
+      skelHtml += `<div class="skel" style="width:${w}%"></div>`;
+    }
+    skelHtml += '</div>';
+  }
+
+  card.innerHTML = `
+    <div class="ver-title">${esc(label)}</div>
+    <div class="ver-body">${skelHtml}</div>`;
+  return card;
+}
+
+// ── Create AI reasoning bubble ─────────────────────────────────────────────
+function createAiBubble(text, x, y) {
+  const bubble = document.createElement('div');
+  bubble.className = 'canvas-card ai-bubble';
+  bubble.id = 'bubble-' + Date.now();
+  bubble.style.left = x + 'px';
+  bubble.style.top  = y + 'px';
+
+  bubble.innerHTML = `
+    <div class="ai-bubble-row">
+      <svg class="ai-bubble-logo" width="20" height="20" viewBox="0 0 100 100" fill="currentColor">
+        <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+      </svg>
+      <div class="ai-bubble-text">${esc(text)}</div>
+    </div>`;
+  makeDraggable(bubble);
+  return bubble;
+}
+
+// ── Add sticky note ────────────────────────────────────────────────────────
+function addNoteCard() {
+  const card = document.createElement('div');
+  card.className = 'canvas-card note-card';
+  card.id = 'card-' + Date.now();
+  // Position in context column (right of V1, or V1's context x)
+  const cx = Math.max(nextVersionX > 0 ? nextVersionX - VER_STEP : 0, 0) + CTX_X_OFF;
+  card.style.left = cx + 'px';
+  card.style.top  = nextCtxY + 'px';
+
+  const now = new Date();
+  const time = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0') + ' ' + (now.getHours() >= 12 ? 'PM' : 'AM');
+
+  card.innerHTML = `
+    <div class="note-hd">
+      <span class="note-label">Note</span>
+      <span class="note-attr">Rakshit · ${time}</span>
+    </div>
+    <textarea class="note-ta" placeholder="Write a note…" rows="3"></textarea>`;
+
+  canvasLayout.appendChild(card);
+  makeDraggable(card);
+
+  const ta = card.querySelector('.note-ta');
+  ta.addEventListener('input', () => {
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  });
+  ta.addEventListener('mousedown', e => e.stopPropagation());
+  setTimeout(() => ta.focus(), 60);
+
+  nextCtxY += 160 + CTX_GAP;
+  autoPanToCard(card);
+}
+
+// ── Add file card ──────────────────────────────────────────────────────────
+function addFileCard(name = "Rakshit's Resume", meta = "Document · PDF") {
+  const card = document.createElement('div');
+  card.className = 'canvas-card file-card';
+  card.id = 'card-' + Date.now();
+  const cx = Math.max(nextVersionX > 0 ? nextVersionX - VER_STEP : 0, 0) + CTX_X_OFF;
+  card.style.left = cx + 'px';
+  card.style.top  = nextCtxY + 'px';
+
+  card.innerHTML = `
+    <div class="file-row">
+      <div class="file-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+          <path d="M14 2v6h6"/>
+          <path d="M16 13H8M16 17H8M10 9H8"/>
+        </svg>
+      </div>
+      <div class="file-meta">
+        <div class="file-name">${esc(name)}</div>
+        <div class="file-type">${esc(meta)}</div>
+      </div>
+    </div>`;
+
+  canvasLayout.appendChild(card);
+  makeDraggable(card);
+
+  requestAnimationFrame(() => { nextCtxY += card.offsetHeight + CTX_GAP; });
+  autoPanToCard(card);
+}
+
+// ── Add link card ──────────────────────────────────────────────────────────
+function addLinkCard(url = 'https://job-boards.greenhouse.io/anthropic/jobs/5152817008') {
+  const card = document.createElement('div');
+  card.className = 'canvas-card link-card';
+  card.id = 'card-' + Date.now();
+  const cx = Math.max(nextVersionX > 0 ? nextVersionX - VER_STEP : 0, 0) + CTX_X_OFF;
+  card.style.left = cx + 'px';
+  card.style.top  = nextCtxY + 'px';
+
+  const now = new Date();
+  const time = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0') + ' ' + (now.getHours() >= 12 ? 'PM' : 'AM');
+
+  card.innerHTML = `
+    <div class="link-row">
+      <div class="link-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+      </div>
+      <div class="link-meta">
+        <a class="link-url" href="#" title="${esc(url)}">${esc(url)}</a>
+        <div class="link-attr">Rakshit · ${time} · Link</div>
+      </div>
+    </div>`;
+
+  canvasLayout.appendChild(card);
+  makeDraggable(card);
+
+  requestAnimationFrame(() => { nextCtxY += card.offsetHeight + CTX_GAP; });
+  autoPanToCard(card);
+}
+
+// ── Context card buttons ───────────────────────────────────────────────────
+document.getElementById('btn-note').addEventListener('click', addNoteCard);
+document.getElementById('btn-attach').addEventListener('click', () => addFileCard());
+document.getElementById('btn-link').addEventListener('click', () => addLinkCard());
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    hideInlineSelTb();
+    hideInlinePromptCard();
+    ctxMenu.classList.remove('show');
+    clearSelections();
+    return;
+  }
+  if (e.target.matches('textarea, input, [contenteditable]')) return;
+  if (appMode !== 'canvas' && appMode !== 'iterate') return;
+  if (e.key === 's' || e.key === 'S') addNoteCard();
+  if (e.key === 'l' || e.key === 'L') addLinkCard();
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCards.size > 0) {
+    e.preventDefault();
+    const ids = [...selectedCards];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) deleteCard(el);
+    });
+    selectedCards.clear();
+    updateSelBadge();
+  }
+});
+
+// ── Free-form drag (with group move) ────────────────────────────────────────
+let dragGroup = [];  // [{el, startLeft, startTop}] for group drag
+
+function makeDraggable(card) {
+  card.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    if (e.target.closest('textarea, [contenteditable="true"], button, input, a')) return;
+    e.stopPropagation();
+    e.preventDefault();
+
+    // Blur active element (e.g. note textarea)
+    if (document.activeElement && document.activeElement !== document.body) {
+      document.activeElement.blur();
+    }
+
+    dragCard        = card;
+    dragStartMouseX = e.clientX;
+    dragStartMouseY = e.clientY;
+    card.classList.add('is-dragging');
+    card.style.zIndex = '30';
+
+    // Build group: if this card is selected, move all selected cards together
+    dragGroup = [];
+    if (selectedCards.has(card.id)) {
+      selectedCards.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          dragGroup.push({
+            el,
+            startLeft: parseFloat(el.style.left) || 0,
+            startTop:  parseFloat(el.style.top)  || 0
+          });
+          if (el !== card) el.classList.add('is-dragging');
+        }
+      });
+    } else {
+      dragGroup.push({
+        el: card,
+        startLeft: parseFloat(card.style.left) || 0,
+        startTop:  parseFloat(card.style.top)  || 0
+      });
+    }
+  });
+}
+
+document.addEventListener('mousemove', e => {
+  if (!dragCard) return;
+  const dx = (e.clientX - dragStartMouseX) / camScale;
+  const dy = (e.clientY - dragStartMouseY) / camScale;
+  dragGroup.forEach(item => {
+    item.el.style.left = (item.startLeft + dx) + 'px';
+    item.el.style.top  = (item.startTop  + dy) + 'px';
+  });
+});
+
+document.addEventListener('mouseup', () => {
+  if (!dragCard) return;
+  dragGroup.forEach(item => {
+    item.el.classList.remove('is-dragging');
+    item.el.style.zIndex = '';
+  });
+  dragCard = null;
+  dragGroup = [];
+});
+
+// ── Selection (click on card to toggle) ───────────────────────────────────
+canvasLayout.addEventListener('click', e => {
+  const card = e.target.closest('.canvas-card');
+  if (!card || card.classList.contains('ai-bubble')) return;
+  if (e.target.closest('textarea, [contenteditable="true"], button, input, a')) return;
+
+  const id = card.id;
+  if (card.classList.contains('selected')) {
+    card.classList.remove('selected');
+    selectedCards.delete(id);
+  } else {
+    card.classList.add('selected');
+    selectedCards.add(id);
+  }
+  updateSelBadge();
+});
+
+// ── Rubber-band drag selection ─────────────────────────────────────────────
+canvasPane.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  if (e.target.closest('.canvas-card')) return;
+  if (e.target.closest('#canvas-input-bar, textarea, input, button, [contenteditable]')) return;
+  if (spaceDown) return;
+  if (appMode !== 'canvas') return;
+
+  // Blur any active textarea/contenteditable (stops blinking cursor on notes)
+  if (document.activeElement && document.activeElement !== document.body) {
+    document.activeElement.blur();
+  }
+
+  // Click on empty canvas deselects everything
+  clearSelections();
+
+  rbActive  = true;
+  rbStartX  = e.clientX;
+  rbStartY  = e.clientY;
+  rubberBand.style.display = 'block';
+  rubberBand.style.left    = e.clientX + 'px';
+  rubberBand.style.top     = e.clientY + 'px';
+  rubberBand.style.width   = '0px';
+  rubberBand.style.height  = '0px';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', e => {
+  if (!rbActive) return;
+  const x = Math.min(e.clientX, rbStartX);
+  const y = Math.min(e.clientY, rbStartY);
+  const w = Math.abs(e.clientX - rbStartX);
+  const h = Math.abs(e.clientY - rbStartY);
+  rubberBand.style.left   = x + 'px';
+  rubberBand.style.top    = y + 'px';
+  rubberBand.style.width  = w + 'px';
+  rubberBand.style.height = h + 'px';
+});
+
+document.addEventListener('mouseup', e => {
+  if (!rbActive) return;
+  rbActive = false;
+  rubberBand.style.display = 'none';
+
+  const rbRect = {
+    left:   Math.min(e.clientX, rbStartX),
+    top:    Math.min(e.clientY, rbStartY),
+    right:  Math.max(e.clientX, rbStartX),
+    bottom: Math.max(e.clientY, rbStartY),
+  };
+
+  // Only select if rubber band has meaningful size
+  if (rbRect.right - rbRect.left < 6 && rbRect.bottom - rbRect.top < 6) return;
+
+  // Test overlap with all canvas cards
+  let didSelect = false;
+  canvasLayout.querySelectorAll('.canvas-card:not(.ai-bubble)').forEach(card => {
+    const cr = card.getBoundingClientRect();
+    const overlaps =
+      cr.left < rbRect.right &&
+      cr.right > rbRect.left &&
+      cr.top < rbRect.bottom &&
+      cr.bottom > rbRect.top;
+    if (overlaps) {
+      card.classList.add('selected');
+      selectedCards.add(card.id);
+      didSelect = true;
+    }
+  });
+
+  if (didSelect) updateSelBadge();
+});
+
+function clearSelections() {
+  selectedCards.clear();
+  canvasLayout.querySelectorAll('.canvas-card.selected').forEach(c => c.classList.remove('selected'));
+  updateSelBadge();
+}
+
+function updateSelBadge() {
+  const n = selectedCards.size;
+  selCount.textContent = n;
+  selBadge.classList.toggle('on', n > 0);
+  canvasField.placeholder = n > 0 ? 'Give a command…' : 'Reply…';
+}
+
+// ── Camera pan / zoom ──────────────────────────────────────────────────────
+function initCamera() {
+  camX = 48; camY = 48; camScale = 1;
+  applyTransform(false);
+}
+
+function applyTransform(animated) {
+  canvasWorld.style.transition = animated
+    ? 'transform 320ms cubic-bezier(.22,.68,0,1.2)'
+    : 'none';
+  canvasWorld.style.transform = `translate(${camX}px,${camY}px) scale(${camScale})`;
+  document.getElementById('zoom-pct').textContent = Math.round(camScale * 100) + '%';
+}
+
+function zoomAt(cx, cy, factor) {
+  const newScale = Math.min(CAM_MAX, Math.max(CAM_MIN, camScale * factor));
+  const wx = (cx - camX) / camScale;
+  const wy = (cy - camY) / camScale;
+  camX = cx - wx * newScale;
+  camY = cy - wy * newScale;
+  camScale = newScale;
+}
+
+// Wheel → zoom
+canvasPane.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect   = canvasPane.getBoundingClientRect();
+  const cx     = e.clientX - rect.left;
+  const cy     = e.clientY - rect.top;
+  const factor = e.ctrlKey
+    ? (e.deltaY < 0 ? 1.12 : 1 / 1.12)
+    : (e.deltaY < 0 ? 1.07 : 1 / 1.07);
+  zoomAt(cx, cy, factor);
+  applyTransform(false);
+}, { passive: false });
+
+// Space → grab cursor
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !e.target.matches('textarea,input,[contenteditable]')) {
+    if (!spaceDown) { spaceDown = true; canvasPane.style.cursor = 'grab'; }
+    e.preventDefault();
+  }
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    spaceDown = false;
+    if (!isPanning) canvasPane.style.cursor = '';
+  }
+});
+
+// Middle-mouse / space+left → pan
+canvasPane.addEventListener('mousedown', e => {
+  if (e.button === 1 || (e.button === 0 && spaceDown)) {
+    if (rbActive) return;
+    isPanning  = true;
+    panOrigin  = { x: e.clientX - camX, y: e.clientY - camY };
+    canvasPane.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+});
+document.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  camX = e.clientX - panOrigin.x;
+  camY = e.clientY - panOrigin.y;
+  applyTransform(false);
+});
+document.addEventListener('mouseup', () => {
+  if (isPanning) {
+    isPanning = false;
+    canvasPane.style.cursor = spaceDown ? 'grab' : '';
+  }
+});
+
+// Zoom buttons
+document.getElementById('zoom-in').addEventListener('click', () => {
+  zoomAt(canvasPane.clientWidth / 2, canvasPane.clientHeight / 2, 1.25);
+  applyTransform(true);
+});
+document.getElementById('zoom-out').addEventListener('click', () => {
+  zoomAt(canvasPane.clientWidth / 2, canvasPane.clientHeight / 2, 1 / 1.25);
+  applyTransform(true);
+});
+document.getElementById('zoom-pct').addEventListener('click', () => {
+  camX = 48; camY = 48; camScale = 1;
+  applyTransform(true);
+});
+
+// ── Auto-pan to show a card ────────────────────────────────────────────────
+function autoPanToCard(card) {
+  requestAnimationFrame(() => {
+    const cardRect = card.getBoundingClientRect();
+    const paneRect = canvasPane.getBoundingClientRect();
+    const margin   = 80;
+
+    let moved = false;
+    let tx = camX, ty = camY;
+
+    // Pan right if card right edge is off-screen
+    if (cardRect.right > paneRect.right - margin) {
+      tx -= (cardRect.right - paneRect.right + margin);
+      moved = true;
+    }
+    // Pan down if card bottom edge is below visible area (above input bar ~140px)
+    const inputBarH = 140;
+    if (cardRect.bottom > paneRect.bottom - inputBarH - margin) {
+      ty -= (cardRect.bottom - paneRect.bottom + inputBarH + margin);
+      moved = true;
+    }
+    // Pan left if card is off the left
+    if (cardRect.left < paneRect.left + margin) {
+      tx += (paneRect.left + margin - cardRect.left);
+      moved = true;
+    }
+
+    if (moved) {
+      const startX = camX, startY = camY;
+      const endX = tx, endY = ty;
+      const dur = 380, t0 = performance.now();
+      function step(now) {
+        const p    = Math.min((now - t0) / dur, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        camX = startX + (endX - startX) * ease;
+        camY = startY + (endY - startY) * ease;
+        applyTransform(false);
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+  });
+}
+
+// ── Streaming helpers ──────────────────────────────────────────────────────
+function streamInto(container, cursor, html, onDone) {
+  const tmp   = document.createElement('div');
+  tmp.innerHTML = html;
+  const paras = Array.from(tmp.querySelectorAll('p'));
+  const chunks = [];
+
+  if (paras.length > 0) {
+    paras.forEach((p, i) => {
+      if (i > 0) chunks.push(null);
+      p.innerHTML.split(/(\s+)/).forEach(w => { if (w) chunks.push(w); });
+    });
+  } else {
+    html.split(/(\s+)/).forEach(w => { if (w) chunks.push(w); });
+  }
+
+  let idx = 0, curP = null;
+  function next() {
+    if (idx >= chunks.length) { cursor.remove(); if (onDone) onDone(); return; }
+    const ch = chunks[idx++];
+    if (ch === null) { curP = null; setTimeout(next, 46); return; }
+    if (!curP) {
+      curP = document.createElement('p');
+      container.insertBefore(curP, cursor);
+    }
+    const s = document.createElement('span');
+    s.innerHTML = ch;
+    curP.appendChild(s);
+    setTimeout(next, 7 + Math.random() * 12);
+  }
+  next();
+}
+
+// ── Inline selection toolbar + prompt card ──────────────────────────────────
+const inlineSelTb     = document.getElementById('inline-sel-tb');
+const istReply        = document.getElementById('ist-reply');
+const istAsk          = document.getElementById('ist-ask');
+const inlinePromptCard= document.getElementById('inline-prompt-card');
+const ipcField        = document.getElementById('ipc-field');
+const ipcSend         = document.getElementById('ipc-send');
+const ctxMenu         = document.getElementById('ctx-menu');
+const ctxDelete       = document.getElementById('ctx-delete');
+
+let selTarget     = null;
+let selRangeRect  = null;
+let ctxTargetCard = null;
+
+function showInlineSelTb(rect) {
+  const pad = 8;
+  let left = rect.left + rect.width / 2 - 140;
+  let top  = rect.bottom + pad;
+  left = Math.max(8, Math.min(left, window.innerWidth - 290));
+  top  = Math.min(top, window.innerHeight - 60);
+  inlineSelTb.style.left = left + 'px';
+  inlineSelTb.style.top  = top + 'px';
+  inlineSelTb.classList.add('show');
+}
+
+function hideInlineSelTb() { inlineSelTb.classList.remove('show'); }
+
+function showInlinePromptCard(rect) {
+  const pad = 8;
+  let left = rect.left;
+  let top  = rect.bottom + pad + 44;
+  left = Math.max(8, Math.min(left, window.innerWidth - 380));
+  top  = Math.min(top, window.innerHeight - 120);
+  inlinePromptCard.style.left = left + 'px';
+  inlinePromptCard.style.top  = top + 'px';
+  inlinePromptCard.classList.add('show');
+  ipcField.value = '';
+  setTimeout(() => ipcField.focus(), 60);
+}
+
+function hideInlinePromptCard() {
+  inlinePromptCard.classList.remove('show');
+  ipcField.value = '';
+}
+
+document.addEventListener('mouseup', e => {
+  if (e.target.closest('#inline-sel-tb, #inline-prompt-card')) return;
+  setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+      if (!inlinePromptCard.classList.contains('show')) hideInlineSelTb();
+      return;
+    }
+    const anchor = sel.anchorNode;
+    const verBody = anchor && anchor.nodeType === Node.TEXT_NODE
+      ? anchor.parentElement.closest('.ver-body')
+      : (anchor ? anchor.closest('.ver-body') : null);
+    if (!verBody) {
+      if (!inlinePromptCard.classList.contains('show')) hideInlineSelTb();
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    selRangeRect = range.getBoundingClientRect();
+    selTarget = range.commonAncestorContainer;
+    if (selTarget.nodeType === Node.TEXT_NODE) selTarget = selTarget.parentElement;
+    selTarget = selTarget.closest('p') || selTarget;
+    showInlineSelTb(selRangeRect);
+  }, 20);
+});
+
+document.addEventListener('mousedown', e => {
+  if (e.target.closest('#inline-sel-tb')) return;
+  if (!e.target.closest('#inline-prompt-card')) hideInlinePromptCard();
+  if (!e.target.closest('#inline-sel-tb') && !e.target.closest('#inline-prompt-card')) {
+    hideInlineSelTb();
+  }
+  if (!e.target.closest('#ctx-menu')) {
+    ctxMenu.classList.remove('show');
+  }
+});
+
+istReply.addEventListener('click', () => {
+  const sel = window.getSelection();
+  if (sel && sel.toString().trim()) {
+    canvasField.value = '> ' + sel.toString().trim() + '\n';
+    autoResize(canvasField, 140);
+    syncSend(canvasField, canvasSend, canvasVoice);
+    canvasField.focus();
+  }
+  hideInlineSelTb();
+});
+
+istAsk.addEventListener('click', () => {
+  hideInlineSelTb();
+  if (selRangeRect) showInlinePromptCard(selRangeRect);
+});
+
+function submitInlinePrompt() {
+  const instruction = ipcField.value.trim();
+  if (!instruction || !selTarget) return;
+  hideInlinePromptCard();
+
+  const verBody = selTarget.closest('.ver-body');
+  const verCard = verBody ? verBody.closest('.ver-card') : null;
+
+  selTarget.innerHTML = `
+    <div class="inline-skel">
+      <div class="skel" style="width:92%"></div>
+      <div class="skel" style="width:86%"></div>
+      <div class="skel" style="width:78%"></div>
+    </div>`;
+
+  const bubbleX = verCard
+    ? (parseFloat(verCard.style.left) || 0) + PANEL_W + 24
+    : (nextVersionX > 0 ? nextVersionX - VER_STEP : 0) + CTX_X_OFF;
+  const existingBubbles = canvasLayout.querySelectorAll('.ai-bubble');
+  let bubbleY = 0;
+  existingBubbles.forEach(b => {
+    const bt = (parseFloat(b.style.top) || 0) + (b.offsetHeight || 60) + CTX_GAP;
+    if (bt > bubbleY) bubbleY = bt;
+  });
+
+  const editBubble = createAiBubble('Updating the section…', bubbleX, bubbleY);
+  canvasLayout.appendChild(editBubble);
+  autoPanToCard(editBubble);
+
+  const newText = `<p>I've refined this section based on your feedback. The updated content reflects a stronger emphasis on the specific skills and experiences that align with Anthropic's mission, while maintaining the personal voice and authentic enthusiasm that makes the letter compelling.</p>`;
+
+  setTimeout(() => {
+    selTarget.innerHTML = '';
+    const cursor = document.createElement('span');
+    cursor.className = 'scursor';
+    selTarget.appendChild(cursor);
+    streamInto(selTarget, cursor, newText, () => {
+      const btEl = editBubble.querySelector('.ai-bubble-text');
+      if (btEl) btEl.textContent = 'Updated the section.';
+    });
+  }, 900 + Math.random() * 400);
+}
+
+ipcSend.addEventListener('click', submitInlinePrompt);
+ipcField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitInlinePrompt(); }
+});
+
+// ── Right-click context menu ──────────────────────────────────────────────
+canvasWorld.addEventListener('contextmenu', e => {
+  const card = e.target.closest('.canvas-card');
+  if (!card) return;
+  e.preventDefault();
+  ctxTargetCard = card;
+
+  let left = e.clientX;
+  let top  = e.clientY;
+  left = Math.min(left, window.innerWidth - 160);
+  top  = Math.min(top, window.innerHeight - 60);
+  ctxMenu.style.left = left + 'px';
+  ctxMenu.style.top  = top + 'px';
+  ctxMenu.classList.add('show');
+});
+
+function deleteCard(card) {
+  card.style.transition = 'opacity 180ms ease, transform 180ms ease';
+  card.style.opacity = '0';
+  card.style.transform = 'scale(0.93)';
+  selectedCards.delete(card.id);
+  setTimeout(() => card.remove(), 180);
+}
+
+ctxDelete.addEventListener('click', () => {
+  ctxMenu.classList.remove('show');
+  if (selectedCards.size > 0 && ctxTargetCard && selectedCards.has(ctxTargetCard.id)) {
+    const ids = [...selectedCards];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) deleteCard(el);
+    });
+  } else if (ctxTargetCard) {
+    deleteCard(ctxTargetCard);
+  }
+  selectedCards.clear();
+  updateSelBadge();
+  ctxTargetCard = null;
+});
+
+// ── HTML escape ────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

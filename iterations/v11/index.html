@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude — v11 Ask + Iterate</title>
+  <style>
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+
+    :root {
+      --bg-page:    #faf9f5;
+      --bg-card:    #ffffff;
+      --bg-sec:     #f0efea;
+      --bg-human:   #f0eee5;
+      --border:     #e7e8e9;
+      --text-pri:   #141413;
+      --text-sec:   #73726c;
+      --text-greet: #3d3d3a;
+      --accent:     #c15f3f;
+      --blue:       #4f9ee8;
+      --dot-color:  #d9d8d4;
+      --shadow:     0 2px 24px rgba(0,0,0,.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-pri);
+      font-size: 14px; line-height: 1.5;
+    }
+    .app { display: flex; height: 100vh; }
+
+    /* ═══ SIDEBAR ═══════════════════════════════════════════════════════════════ */
+    .sidebar {
+      width: 48px; background: var(--bg-page);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      align-items: center; padding: 12px 0 14px;
+      flex-shrink: 0; z-index: 40;
+    }
+    .sb-top { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
+    .sb-btm { display: flex; flex-direction: column; align-items: center; }
+    .sb-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: background 120ms, color 120ms;
+    }
+    .sb-btn:hover { background: rgba(0,0,0,.05); color: var(--text-pri); }
+    .sb-btn.active { color: var(--accent); }
+    .sb-divider { width: 20px; height: 1px; background: var(--border); margin: 4px 0; }
+    .user-av {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: white;
+      cursor: pointer; letter-spacing: .04em;
+    }
+    .main-wrap { flex: 1; position: relative; overflow: hidden; }
+
+    /* ═══ SHARED INPUT ══════════════════════════════════════════════════════════ */
+    .input-wrap {
+      background: var(--bg-card);
+      border-radius: 18px; border: 1px solid var(--border);
+      padding: 20px 20px 14px;
+      box-shadow: var(--shadow);
+      display: flex; flex-direction: column; gap: 16px;
+      transition: box-shadow 150ms;
+    }
+    .input-wrap:focus-within {
+      box-shadow: 0 2px 24px rgba(0,0,0,.12), 0 0 0 1.5px rgba(0,0,0,.10);
+    }
+    .input-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 18px; font-weight: 500; font-family: inherit;
+      color: var(--text-pri); resize: none; outline: none;
+      line-height: 1.4; min-height: 26px; max-height: 180px;
+      letter-spacing: -.36px;
+    }
+    .input-field::placeholder { color: var(--text-sec); font-weight: 400; }
+    .input-field.reply { font-size: 16px; font-weight: 400; letter-spacing: -.2px; min-height: 22px; }
+    .input-top { display: flex; align-items: flex-start; gap: 8px; min-height: 26px; }
+    .input-tb { display: flex; align-items: center; justify-content: space-between; }
+    .tb-left  { display: flex; align-items: center; gap: 10px; }
+    .tb-right { display: flex; align-items: center; gap: 10px; }
+    .plus-btn {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1.5px solid var(--border); background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: border-color 100ms, color 100ms; flex-shrink: 0;
+    }
+    .plus-btn:hover { border-color: var(--text-sec); color: var(--text-pri); }
+    .model-sel {
+      display: flex; align-items: center; gap: 4px;
+      border: none; background: transparent; cursor: pointer;
+      font-family: inherit; font-size: 14.5px; color: var(--text-sec);
+      letter-spacing: -.28px; transition: color 100ms;
+    }
+    .model-sel:hover { color: var(--text-pri); }
+    .model-sel b { color: var(--text-pri); font-weight: 500; }
+    .voice-btn {
+      color: var(--text-sec); background: transparent; border: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: color 100ms;
+    }
+    .voice-btn:hover { color: var(--text-pri); }
+    .send-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 120ms, transform 80ms;
+    }
+    .send-btn.ready    { background: var(--accent); color: white; }
+    .send-btn.stop     { background: var(--text-pri); color: white; }
+    .send-btn.disabled { background: #d6d4cf; color: white; cursor: not-allowed; opacity: .7; }
+    .send-btn:not(.disabled):active { transform: scale(.9); }
+
+    #sel-badge {
+      display: none; align-items: center; gap: 4px;
+      color: #033663; font-size: 14px; font-weight: 400;
+      white-space: nowrap; flex-shrink: 0; letter-spacing: -.28px;
+      background: rgba(178,218,253,.2); border-radius: 5px;
+      padding: 2px 8px; line-height: 1.4;
+    }
+    #sel-badge svg { display: none; }
+    #sel-badge.on { display: flex; }
+
+    /* ═══ HEADER BAR ═══════════════════════════════════════════════════════════ */
+    .doc-header {
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 32px;
+      background: var(--bg-page); flex-shrink: 0; z-index: 30;
+    }
+    .doc-title-wrap {
+      flex: 0 0 auto; width: 300px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 16px; font-weight: 400; color: var(--text-pri);
+      cursor: pointer; letter-spacing: -.32px; line-height: 1.4;
+      transition: opacity 100ms;
+    }
+    .doc-title-wrap:hover { opacity: .75; }
+    .doc-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+    .doc-header-center { flex: 1; display: flex; justify-content: center; }
+    .hdr-pill-group {
+      display: flex; align-items: center;
+      border: none; border-radius: 10px; padding: 2px;
+      background: var(--bg-sec);
+    }
+    .hdr-pill {
+      padding: 6px 16px; border-radius: 8px; border: none; cursor: pointer;
+      font-family: inherit; font-size: 16px; font-weight: 400; letter-spacing: -.32px;
+      color: var(--text-sec); background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1.4; transition: background 160ms, color 160ms;
+    }
+    .hdr-pill.active { background: white; color: var(--text-pri); font-weight: 500; }
+    .doc-header-right { flex: 0 0 auto; width: 300px; display: flex; justify-content: flex-end; }
+    .share-btn {
+      height: 40px; padding: 0 16px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      font-family: inherit; font-size: 16px; font-weight: 500;
+      color: var(--text-pri); cursor: pointer; letter-spacing: -.32px;
+      transition: background 100ms, border-color 100ms;
+    }
+    .share-btn:hover { background: var(--bg-sec); border-color: #d0cfca; }
+
+    /* ═══ HOME SCREEN ══════════════════════════════════════════════════════════ */
+    #home-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: var(--bg-page); z-index: 20;
+      transition: opacity 240ms ease, transform 240ms ease;
+    }
+    #home-screen.hiding { opacity: 0; transform: translateY(-14px); pointer-events: none; }
+    .greeting-row { display: flex; align-items: center; gap: 18px; margin-bottom: 36px; }
+    .greeting-logo { color: var(--accent); flex-shrink: 0; }
+    .greeting-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 48px; font-weight: 300;
+      color: var(--text-greet); letter-spacing: -.5px; line-height: 1.1;
+    }
+
+    /* ═══ ITERATE MODE ═════════════════════════════════════════════════════════ */
+    #iterate-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none;
+      transition: opacity 260ms ease;
+    }
+    #iterate-screen.visible { opacity: 1; pointer-events: auto; }
+    #canvas-pane {
+      flex: 1; position: relative;
+      background: var(--bg-page); overflow: hidden; cursor: default;
+    }
+    #canvas-pane.has-grid {
+      background-image: radial-gradient(circle, var(--dot-color) 1.2px, transparent 1.2px);
+      background-size: 22px 22px;
+    }
+    #canvas-world {
+      position: absolute; top: 0; left: 0;
+      transform-origin: 0 0; will-change: transform;
+      padding: 48px 48px 160px;
+    }
+    #canvas-layout { position: relative; min-width: 1100px; min-height: 700px; }
+    #canvas-input-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 48px 14px; z-index: 30; pointer-events: none;
+    }
+    #canvas-input-bar .ask-reply-wrap { width: 752px; max-width: calc(100vw - 148px); }
+    .canvas-disclaimer {
+      font-size: 16px; color: var(--text-sec); letter-spacing: -.32px;
+      line-height: 1.4; margin-top: 12px; pointer-events: auto; text-align: center;
+    }
+
+    /* Canvas cards */
+    .canvas-card {
+      position: absolute; background: var(--bg-card);
+      border-radius: 12px; border: 1px solid var(--border);
+      transition: border-color 160ms, box-shadow 160ms;
+    }
+    .canvas-card.selected { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(79,158,232,.12); }
+    .canvas-card.is-dragging { box-shadow: 0 14px 36px rgba(0,0,0,.13), 0 0 0 1px rgba(0,0,0,.06); z-index: 20; }
+
+    /* Iterate sidebar */
+    .iter-sidebar {
+      position: absolute; top: 0;
+      width: 490px; background: var(--bg-card);
+      border-radius: 12px; border: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+      max-height: calc(100vh - 260px);
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+      transition: border-color 160ms, box-shadow 160ms;
+    }
+    .iter-sidebar.selected {
+      border-color: #b2dafd; box-shadow: 0 0 0 3px rgba(178,218,253,.25);
+    }
+    .iter-sidebar-header {
+      padding: 16px; flex-shrink: 0;
+    }
+    .iter-sidebar-prompt {
+      background: var(--bg-human); border-radius: 12px;
+      padding: 16px; font-size: 16px; color: var(--text-pri);
+      line-height: 1.4; letter-spacing: -.32px;
+    }
+    .iter-sidebar-content {
+      flex: 1; overflow-y: auto; padding: 24px;
+      background: var(--bg-card);
+    }
+    .iter-sidebar-content::-webkit-scrollbar { width: 4px; }
+    .iter-sidebar-content::-webkit-scrollbar-thumb { background: #d0cfca; border-radius: 2px; }
+    .iter-version-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .iter-version-title {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 14px; font-weight: 400; text-transform: uppercase;
+      color: var(--text-sec); letter-spacing: .14px;
+    }
+    .iter-version-nav {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .iter-version-nav .ver-btn { width: 16px; height: 16px; }
+    .iter-version-nav .ver-label { font-size: 14px; color: var(--text-sec); min-width: 28px; text-align: center; }
+
+    .iter-body {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 14px; font-weight: 300;
+      color: var(--text-pri); line-height: 1.4; letter-spacing: .14px;
+      outline: none; border-radius: 4px;
+    }
+    .iter-body[contenteditable="true"] { cursor: text; }
+    .iter-body[contenteditable="true"]:focus { box-shadow: 0 0 0 2px rgba(79,158,232,.2); }
+    .iter-body p + p { margin-top: 14px; }
+
+    .ver-card { width: 490px; padding: 24px; }
+    .ver-title {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 22px; font-weight: 400;
+      color: var(--text-pri); margin-bottom: 20px;
+      letter-spacing: .2px; line-height: 1.25;
+    }
+    .ver-body {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 15.5px; font-weight: 400;
+      color: var(--text-pri); line-height: 1.78;
+      outline: none; border-radius: 4px;
+    }
+    .ver-body[contenteditable="true"] { cursor: text; }
+    .ver-body[contenteditable="true"]:focus { box-shadow: 0 0 0 2px rgba(79,158,232,.2); }
+    .ver-body p + p { margin-top: 14px; }
+
+    .ver-card-nav {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 14px;
+    }
+    .ver-card-nav .ver-btn { width: 18px; height: 18px; }
+    .ver-card-nav .ver-label { font-size: 14px; }
+
+    .prompt-bubble {
+      position: absolute; max-width: 380px;
+      background: var(--bg-human); border-radius: 8px;
+      padding: 16px; font-size: 16px; color: var(--text-pri);
+      line-height: 1.4; letter-spacing: -.32px;
+    }
+
+    .ctx-bubble-card { width: 290px; padding: 14px 16px; }
+    .ctx-bubble-text { font-size: 14px; color: var(--text-pri); line-height: 1.5; margin-bottom: 6px; }
+    .ctx-bubble-meta { font-size: 12px; color: var(--text-sec); }
+
+    .file-card { width: 290px; padding: 14px 16px; }
+    .file-row { display: flex; align-items: center; gap: 12px; }
+    .file-icon {
+      width: 40px; height: 40px; border-radius: 8px;
+      background: var(--bg-sec); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+    }
+    .file-meta { flex: 1; min-width: 0; }
+    .file-name { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+    .file-type { font-size: 11.5px; color: var(--text-sec); }
+
+    /* Sticky note card */
+    .note-card { width: 281px; padding: 16px 12px; background: #fcf9eb; border: 1px solid #ecb903; border-radius: 12px; }
+    .note-card.green { background: #f2fbf0; border-color: #199904; }
+    .note-card.red { background: #fdf7f7; border-color: #d43333; }
+    .note-ta {
+      width: 100%; border: none; background: transparent; outline: none;
+      font-size: 14px; font-weight: 500; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      color: var(--text-pri); line-height: 1.4; letter-spacing: -.28px;
+      resize: none; min-height: 40px; max-height: 220px; margin-bottom: 24px;
+    }
+    .note-ta::placeholder { color: #c4ba6a; font-style: italic; font-weight: 400; }
+    .note-card.green .note-ta::placeholder { color: #6ab07a; }
+    .note-card.red .note-ta::placeholder { color: #b06a5a; }
+    .note-meta { font-size: 12px; color: var(--text-sec); letter-spacing: -.24px; }
+
+    /* Link card */
+    .link-card { width: 290px; padding: 14px 16px; }
+    .link-row { display: flex; align-items: flex-start; gap: 12px; }
+    .link-icon {
+      width: 40px; height: 40px; border-radius: 8px;
+      background: var(--bg-sec); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+    }
+    .link-meta { flex: 1; min-width: 0; }
+    .link-url {
+      font-size: 12px; color: var(--blue);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-decoration: none; display: block; margin-bottom: 3px;
+    }
+    .link-attr { font-size: 11px; color: var(--text-sec); }
+
+    /* Canvas tools (right edge, vertical) */
+    #canvas-tools {
+      position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 8px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.06);
+      z-index: 10;
+      opacity: 0; pointer-events: none;
+      transition: opacity 220ms;
+    }
+    #canvas-tools.show { opacity: 1; pointer-events: auto; }
+    .tool-btn {
+      position: relative;
+      width: 40px; height: 40px; border-radius: 99px;
+      border: none; background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: background 90ms, color 90ms;
+    }
+    .tool-btn:hover { background: #f7f7f7; color: var(--text-pri); }
+    .tool-btn.active { background: #f7f7f7; color: var(--text-pri); }
+    .tool-divider { width: 100%; height: 1px; background: var(--border); }
+
+    /* Tool tooltip (appears left of toolbar) */
+    .tool-tip {
+      position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+      background: var(--text-pri); color: var(--bg-page);
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      font-size: 16px; line-height: 1.4; letter-spacing: -0.32px;
+      white-space: nowrap; padding: 8px 12px; border-radius: 12px;
+      pointer-events: none;
+      opacity: 0; transition: opacity 120ms;
+    }
+    .tool-btn:hover .tool-tip { opacity: 1; }
+
+    /* Skeleton */
+    .skel-group { margin-bottom: 22px; }
+    .skel-group:last-child { margin-bottom: 0; }
+    .skel {
+      height: 19px; border-radius: 999px; margin-bottom: 10px;
+      background: linear-gradient(90deg,
+        rgba(255,255,255,.5) 20%, rgba(220,220,215,.7) 32%,
+        rgba(255,255,255,.5) 47%, rgba(250,249,245,.5) 65%,
+        rgba(255,255,255,.5) 80%),
+        linear-gradient(90deg, #f0efe9, #f0efe9);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    .skel:last-child { width: 80% !important; margin-bottom: 0; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .scursor {
+      display: inline-block; width: 2px; height: 14px;
+      background: var(--text-sec); border-radius: 1px;
+      vertical-align: text-bottom; margin-left: 1px;
+      animation: blink .85s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Feedback / zoom toolbar */
+    #feedback-tb {
+      position: absolute; bottom: 16px; right: 16px;
+      display: flex; align-items: center; gap: 8px;
+      z-index: 10; opacity: 0; pointer-events: none;
+      transition: opacity 220ms;
+    }
+    #feedback-tb.show { opacity: 1; pointer-events: auto; }
+    .stepper {
+      display: flex; align-items: center;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 2px 4px; gap: 2px; height: 36px;
+    }
+    .stepper-btn {
+      width: 28px; height: 28px; border-radius: 6px;
+      border: none; background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: background 90ms, color 90ms;
+    }
+    .stepper-btn:hover { background: var(--bg-sec); color: var(--text-pri); }
+    #zoom-pct {
+      min-width: 32px; text-align: center;
+      font-size: 13px; font-weight: 500; letter-spacing: -.2px;
+      color: var(--text-pri); cursor: pointer;
+      border: none; background: transparent; font-family: inherit;
+      border-radius: 5px; padding: 2px 4px;
+    }
+    .fb-btn {
+      width: 36px; height: 36px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg-card);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: background 90ms, color 90ms;
+    }
+    .fb-btn:hover { background: var(--bg-sec); color: var(--text-pri); }
+    #rubber-band {
+      position: fixed; z-index: 200; pointer-events: none;
+      border: 1.5px solid var(--blue); background: rgba(79,158,232,.07);
+      border-radius: 3px; display: none;
+    }
+
+    /* Inline selection toolbar */
+    #inline-sel-tb {
+      position: fixed; z-index: 400;
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-card); border-radius: 12px; padding: 6px 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+      opacity: 0; pointer-events: none;
+      transform: translateY(4px); transition: opacity 140ms ease, transform 140ms ease;
+    }
+    #inline-sel-tb.show { opacity: 1; pointer-events: auto; transform: none; }
+    .ist-btn {
+      display: flex; align-items: center; gap: 5px;
+      height: 30px; padding: 0 14px 0 10px;
+      border-radius: 6px; border: 1px solid var(--border);
+      background: white; cursor: pointer; font-family: inherit;
+      font-size: 12px; font-weight: 600; color: var(--text-pri);
+      transition: background 80ms;
+    }
+    .ist-btn:hover { background: var(--bg-sec); }
+    .ist-btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .ist-btn.primary:hover { background: #a84e2e; border-color: #a84e2e; }
+    .ist-sep { width: 1px; height: 16px; background: var(--border); margin: 0 2px; }
+
+    /* Inline prompt card */
+    #inline-prompt-card {
+      position: fixed; z-index: 401; width: 360px;
+      background: white; border-radius: 14px; padding: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.06);
+      opacity: 0; pointer-events: none;
+      transform: translateY(6px) scale(.98);
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+    #inline-prompt-card.show { opacity: 1; pointer-events: auto; transform: none; }
+    #ipc-field {
+      width: 100%; border: none; background: transparent; outline: none;
+      font-size: 14px; font-family: inherit; color: var(--text-pri);
+      resize: none; line-height: 1.55; min-height: 22px; max-height: 100px;
+      margin-bottom: 10px;
+    }
+    #ipc-field::placeholder { color: var(--text-sec); }
+    .ipc-row { display: flex; align-items: center; justify-content: space-between; }
+    #ipc-plus {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1.5px solid var(--border); background: white;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: border-color 100ms;
+    }
+    #ipc-plus:hover { border-color: var(--text-sec); }
+    #ipc-send {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: none; background: var(--accent); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 100ms, transform 80ms;
+    }
+    #ipc-send:hover { background: #a84e2e; }
+    #ipc-send:active { transform: scale(.9); }
+    .inline-skel { margin: 4px 0; }
+    .inline-skel .skel { height: 19px; margin-bottom: 10px; border-radius: 999px; }
+    .inline-skel .skel:last-child { width: 72% !important; }
+
+    /* ═══ ASK MODE ═════════════════════════════════════════════════════════════ */
+    #ask-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none;
+      transition: opacity 260ms ease;
+    }
+    #ask-screen.visible { opacity: 1; pointer-events: auto; }
+    .ask-split { flex: 1; display: flex; overflow: hidden; }
+    .ask-left {
+      width: 50%; min-width: 320px; display: flex; flex-direction: column;
+      overflow: hidden; background: var(--bg-page);
+    }
+    .ask-left.centered {
+      width: 100%; border-right: none;
+      align-items: center;
+    }
+    .ask-left.centered .ask-chat-scroll { max-width: 840px; width: 100%; }
+    .ask-chat-scroll { flex: 1; overflow-y: auto; padding: 40px 47px 12px; display: flex; flex-direction: column; align-items: center; }
+    .ask-chat-inner { width: 100%; max-width: 720px; display: flex; flex-direction: column; }
+    .ask-chat-scroll::-webkit-scrollbar { width: 5px; }
+    .ask-chat-scroll::-webkit-scrollbar-thumb { background: #d0cfca; border-radius: 3px; }
+
+    .chat-msg-group { position: relative; display: flex; flex-direction: column; }
+    .chat-msg-hover-delete {
+      position: absolute; right: 0; top: 4px; z-index: 2;
+      opacity: 0; pointer-events: none; transition: opacity 150ms;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .chat-msg-group:hover .chat-msg-hover-delete { opacity: 1; pointer-events: auto; }
+
+    .ask-user-wrap { display: flex; justify-content: flex-end; margin-bottom: 28px; position: relative; }
+    .ask-user-bubble {
+      max-width: 392px; background: var(--bg-human);
+      border-radius: 8px; padding: 16px;
+      font-size: 16px; color: var(--text-pri);
+      line-height: 1.4; letter-spacing: -.32px;
+    }
+    .ask-user-hover-actions {
+      position: absolute; right: 0; top: calc(100% + 2px);
+      display: flex; align-items: center; gap: 10px;
+      opacity: 0; pointer-events: none; transition: opacity 150ms;
+    }
+    .ask-user-wrap:hover .ask-user-hover-actions { opacity: 1; pointer-events: auto; }
+    .ask-user-reply-bubble {
+      max-width: 392px; background: var(--bg-human);
+      border-radius: 8px; padding: 16px;
+      font-size: 16px; color: var(--text-pri);
+      line-height: 1.4; letter-spacing: -.32px;
+      align-self: flex-end; margin-bottom: 16px;
+    }
+    .ask-ai-bubble {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 300;
+      color: var(--text-pri); letter-spacing: .01em;
+      margin-bottom: 16px; line-height: 1.5;
+    }
+    .ask-ai-label {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 300;
+      color: var(--text-pri); letter-spacing: .01em;
+      margin-bottom: 20px; line-height: 1.5;
+    }
+    .ask-deleted-msg {
+      display: flex; align-items: center; gap: 8px;
+      font-family: 'Tiempos Text', 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 300; color: var(--text-sec);
+      letter-spacing: -.32px; margin-bottom: 20px;
+    }
+    .ask-deleted-msg .undo-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-sec); display: flex; align-items: center;
+      transition: color 100ms; width: 20px; height: 20px;
+    }
+    .ask-deleted-msg .undo-btn:hover { color: var(--text-pri); }
+
+    .ask-inline-doc-card { margin-bottom: 32px; }
+    .ask-card-wrap { position: relative; }
+    .ask-doc-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: 16px; padding: 8px 12px 8px 8px;
+      width: 100%; max-width: 547px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ask-doc-card-left { display: flex; align-items: center; gap: 16px; }
+    .ask-doc-icon {
+      width: 58px; height: 58px; background: #f7f7f7; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: var(--text-sec);
+    }
+    .ask-doc-title-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 14px; font-weight: 400;
+      color: var(--text-pri); letter-spacing: -.28px; margin-bottom: 2px;
+    }
+    .ask-doc-type { font-size: 12px; color: var(--text-sec); letter-spacing: -.24px; }
+    .ask-download-btn {
+      height: 40px; padding: 0 16px; border-radius: 8px;
+      border: 1px solid var(--border); background: white;
+      font-family: inherit; font-size: 16px; font-weight: 400;
+      color: var(--text-pri); cursor: pointer; letter-spacing: -.32px;
+      transition: background 100ms; flex-shrink: 0;
+    }
+    .ask-download-btn:hover { background: #f7f7f5; }
+    .doc-card-actions-row {
+      display: none; align-items: center; justify-content: space-between;
+      padding: 8px 0 0; height: 22px;
+    }
+    .doc-card-actions-row.visible { display: flex; }
+    .dca-left { display: flex; align-items: center; gap: 4px; }
+    .dca-left .icon-btn { width: 20px; height: 20px; }
+    .dca-left .dca-page-label {
+      font-size: 13px; color: var(--text-sec); letter-spacing: -.26px;
+      min-width: 32px; text-align: center; user-select: none;
+    }
+    .dca-right { display: flex; align-items: center; gap: 16px; }
+    .dca-right .icon-btn { width: 20px; height: 20px; }
+    .icon-btn {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-sec); display: flex; align-items: center; justify-content: center;
+      transition: color 100ms; padding: 2px;
+    }
+    .icon-btn:hover { color: var(--text-pri); }
+    .icon-btn.danger:hover { color: #d94f4f; }
+
+    .ask-reply-bar {
+      padding: 14px 0 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      flex-shrink: 0; background: var(--bg-page);
+    }
+    .ask-reply-wrap {
+      width: 752px; max-width: calc(100% - 40px);
+      background: white; border: 1px solid var(--border);
+      border-radius: 18px; padding: 24px 24px 16px;
+      box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 16px;
+    }
+    .plus-icon-btn {
+      background: none; border: none; cursor: pointer; padding: 0;
+      color: var(--text-sec); display: flex; align-items: center; justify-content: center;
+      transition: color 100ms;
+    }
+    .plus-icon-btn:hover { color: var(--text-pri); }
+    .ask-reply-wrap:focus-within {
+      box-shadow: 0 2px 24px rgba(0,0,0,.12), 0 0 0 1.5px rgba(0,0,0,.10);
+    }
+    .ask-resize-handle {
+      width: 6px; cursor: col-resize; background: transparent;
+      flex-shrink: 0; position: relative; z-index: 10;
+      transition: background 150ms;
+    }
+    .ask-resize-handle:hover,
+    .ask-resize-handle.dragging { background: var(--accent); }
+    .ask-resize-handle::after {
+      content: ''; position: absolute; top: 0; bottom: 0;
+      left: -3px; right: -3px;
+    }
+    .ask-right {
+      flex: 1; min-width: 280px; display: flex; flex-direction: column;
+      background: white; overflow: hidden;
+      transition: opacity 200ms ease;
+    }
+    .ask-right.hidden { width: 0; opacity: 0; pointer-events: none; overflow: hidden; }
+    .ask-doc-hdr {
+      flex-shrink: 0; display: flex; flex-direction: column;
+    }
+    .ask-doc-hdr-top {
+      padding: 20px 44px 0; display: flex; align-items: center; gap: 20px;
+    }
+    .ask-version-label {
+      font-size: 16px; color: var(--text-pri);
+      letter-spacing: -.32px; font-weight: 400; white-space: nowrap;
+    }
+    .ver-nav-row { display: none; align-items: center; gap: 8px; }
+    .ver-nav-row.show { display: flex; }
+    .ver-btn {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-sec); width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color 100ms;
+    }
+    .ver-btn:hover { color: var(--text-pri); }
+    .ver-btn.disabled { opacity: .3; cursor: not-allowed; }
+    .ver-label { font-size: 16px; color: var(--text-sec); letter-spacing: -.32px; white-space: nowrap; }
+
+    .version-tabs {
+      display: flex; align-items: flex-end;
+      padding: 0 16px; gap: 0;
+      height: 48px; overflow-x: auto;
+      border-bottom: 1px solid var(--border);
+    }
+    .version-tabs::-webkit-scrollbar { display: none; }
+    .version-tab {
+      display: flex; align-items: center;
+      padding: 0 16px; height: 48px;
+      font-size: 16px; font-weight: 400;
+      color: var(--text-sec); cursor: pointer;
+      border: none; background: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -1px; white-space: nowrap;
+      transition: color 120ms, border-color 120ms;
+      font-family: inherit; letter-spacing: -.32px;
+    }
+    .version-tab:hover { color: var(--text-pri); }
+    .version-tab.active {
+      color: var(--text-pri); font-weight: 500;
+      border-bottom-color: var(--text-pri);
+      border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+      border-top-left-radius: 4px; border-top-right-radius: 4px;
+    }
+    .ask-doc-toolbar {
+      height: 48px; padding: 8px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .adt-left { display: flex; align-items: center; gap: 8px; }
+    .adt-pagination { display: flex; align-items: center; gap: 8px; }
+    .adt-pagination .ver-btn { width: 16px; height: 16px; }
+    .adt-pagination .ver-label { font-size: 14px; }
+    .adt-ver-info {
+      font-size: 14px; color: var(--text-sec); letter-spacing: -.28px; white-space: nowrap;
+    }
+    .adt-right { display: flex; align-items: center; gap: 16px; }
+    .adt-copy-group {
+      display: flex; align-items: center; height: 32px;
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .adt-copy-btn {
+      padding: 0 12px; height: 100%; border: none; background: white;
+      font-family: inherit; font-size: 12px; font-weight: 500;
+      color: var(--text-pri); cursor: pointer; letter-spacing: -.24px;
+      transition: background 100ms;
+    }
+    .adt-copy-btn:hover { background: #f5f5f3; }
+    .adt-copy-chevron {
+      width: 32px; height: 100%;
+      border: none; border-left: 1px solid var(--border); background: white;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--text-sec); transition: background 100ms;
+    }
+    .adt-copy-chevron:hover { background: #f5f5f3; }
+    .adt-icon-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-sec); display: flex; align-items: center; justify-content: center;
+      transition: color 100ms; padding: 0;
+    }
+    .adt-icon-btn:hover { color: var(--text-pri); }
+    .ask-doc-scroll { flex: 1; overflow-y: auto; padding: 24px 32px 32px; }
+    .ask-doc-scroll::-webkit-scrollbar { width: 5px; }
+    .ask-doc-scroll::-webkit-scrollbar-thumb { background: #d0cfca; border-radius: 3px; }
+    .ask-doc-heading {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 24px; font-weight: 400;
+      line-height: 1.2; letter-spacing: .24px;
+      color: var(--text-pri); margin-bottom: 16px;
+    }
+    #ask-doc-content {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 300;
+      line-height: 24px; letter-spacing: .16px; color: var(--text-pri);
+      cursor: text; outline: none; border-radius: 6px;
+    }
+    #ask-doc-content:focus { box-shadow: 0 0 0 2px rgba(79,158,232,.15); }
+    #ask-doc-content p { margin-bottom: 18px; }
+    #ask-doc-content p:last-child { margin-bottom: 0; }
+    .skel-line {
+      height: 12px; border-radius: 6px;
+      background: linear-gradient(90deg, #e5e4df 25%, #edede8 50%, #e5e4df 75%);
+      background-size: 200% 100%; animation: shimmer 1.4s infinite; margin-bottom: 10px;
+    }
+    .skel-line:last-child { margin-bottom: 0; }
+    #ask-skeleton { display: none; margin-bottom: 18px; }
+    #ask-card-nav { display: none; }
+    #ask-card-nav.show { display: flex; }
+    .disclaimer { font-size: 11.5px; color: var(--text-sec); letter-spacing: -.1px; }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sb-top">
+      <button class="sb-btn active" title="Layout"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
+      <button class="sb-btn" title="Search"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
+      <button class="sb-btn" title="Projects"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M2 10h20"/></svg></button>
+      <button class="sb-btn" title="Conversations"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+    </div>
+    <div class="sb-btm"><div class="user-av">RK</div></div>
+  </aside>
+
+  <div class="main-wrap">
+    <!-- ═══ HOME ═══ -->
+    <div id="home-screen">
+      <div class="greeting-row">
+        <svg class="greeting-logo" width="44" height="44" viewBox="0 0 100 100" fill="currentColor"><path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/></svg>
+        <span class="greeting-text">Good afternoon, Rakshit</span>
+      </div>
+      <div class="input-wrap" id="home-input-wrap" style="width:752px;max-width:calc(100vw - 112px);">
+        <textarea class="input-field" id="home-field" placeholder="How can I help you today?" rows="1"></textarea>
+        <div class="input-tb">
+          <div class="tb-left"><button class="plus-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
+          <div class="tb-right">
+            <button class="model-sel"><b>Opus 4.6</b>&nbsp;<span style="color:var(--text-sec)">Extended</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+            <button class="voice-btn" id="home-voice"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/></svg></button>
+            <button class="send-btn disabled" id="home-send"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ITERATE MODE ═══ -->
+    <div id="iterate-screen">
+      <header class="doc-header" id="iter-header">
+        <div class="doc-title-wrap"><span class="doc-title-text" id="doc-title-text">Cover letter for anthropic</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-sec);flex-shrink:0;"><path d="m6 9 6 6 6-6"/></svg></div>
+        <div class="doc-header-center"><div class="hdr-pill-group"><button class="hdr-pill" id="dpill-ask">Ask</button><button class="hdr-pill active" id="dpill-iter">Iterate</button></div></div>
+        <div class="doc-header-right"><button class="share-btn">Share</button></div>
+      </header>
+      <div id="canvas-pane">
+        <div id="canvas-world"><div id="canvas-layout"></div></div>
+        <div id="canvas-tools">
+          <button class="tool-btn active" id="btn-select" data-tool="select"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg><span class="tool-tip">Select</span></button>
+          <button class="tool-btn" id="btn-marquee" data-tool="marquee"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h2M11 3h2M17 3h2M3 5v2M21 5v2M3 11v2M21 11v2M3 17v2M21 17v2M5 21h2M11 21h2M17 21h2"/></svg><span class="tool-tip">Select area</span></button>
+          <button class="tool-btn" id="btn-hand" data-tool="hand"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg><span class="tool-tip">Pan</span></button>
+          <div class="tool-divider"></div>
+          <button class="tool-btn" id="btn-note" data-tool="note"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/><path d="M14 3v4a2 2 0 0 0 2 2h4"/></svg><span class="tool-tip">Sticky note (S)</span></button>
+          <button class="tool-btn" id="btn-attach-ctx" data-tool="attach"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span class="tool-tip">Attach</span></button>
+        </div>
+        <div id="feedback-tb">
+          <div class="stepper">
+            <button class="stepper-btn" id="zoom-out" title="Zoom out"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+            <button id="zoom-pct" title="Reset zoom">100</button>
+            <button class="stepper-btn" id="zoom-in" title="Zoom in"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+          </div>
+          <button class="fb-btn" title="Help"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
+        </div>
+        <div id="canvas-input-bar">
+          <div class="ask-reply-wrap" id="canvas-input-wrap" style="pointer-events:auto;">
+            <div class="input-top" style="display:flex;align-items:center;gap:8px;">
+              <div id="sel-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span id="sel-count">0</span> sources</div>
+              <textarea class="input-field reply" id="canvas-field" placeholder="How can I help you?" rows="1"></textarea>
+            </div>
+            <div class="input-tb">
+              <div class="tb-left"><button class="plus-icon-btn" id="btn-attach" title="Attach"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
+              <div class="tb-right">
+                <button class="model-sel"><b>Opus 4.6</b>&nbsp;<span style="color:var(--text-sec)">Extended</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+                <button class="voice-btn" id="canvas-voice"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg></button>
+                <button class="send-btn disabled" id="canvas-send" style="display:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <p class="canvas-disclaimer">Claude is AI and can make mistakes. Please double-check responses.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ASK MODE ═══ -->
+    <div id="ask-screen">
+      <header class="doc-header">
+        <div class="doc-title-wrap"><span class="doc-title-text" id="ask-title-text">Cover letter for anthropic</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-sec);flex-shrink:0;"><path d="m6 9 6 6 6-6"/></svg></div>
+        <div class="doc-header-center"><div class="hdr-pill-group"><button class="hdr-pill active" id="apill-ask">Ask</button><button class="hdr-pill" id="apill-iter">Iterate</button></div></div>
+        <div class="doc-header-right"><button class="share-btn">Share</button></div>
+      </header>
+      <div class="ask-split">
+        <div class="ask-left" id="ask-left">
+          <div class="ask-chat-scroll" id="ask-chat-scroll">
+            <div class="ask-chat-inner" id="ask-chat-inner">
+            <div class="ask-user-wrap" id="ask-user-wrap">
+              <div class="ask-user-bubble" id="ask-user-bubble">Help me draft a cover letter for a role at Anthropic</div>
+              <div class="ask-user-hover-actions">
+                <button class="icon-btn" title="Copy"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+                <button class="icon-btn" title="Regenerate"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
+                <button class="icon-btn danger" id="ask-user-delete" title="Delete"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+              </div>
+            </div>
+            <div class="chat-msg-group" id="ask-initial-response">
+              <div class="chat-msg-hover-delete">
+                <button class="icon-btn danger msg-delete-btn" title="Delete"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+              </div>
+            <p class="ask-ai-label" id="ask-ai-label">Here is a cover letter generated for your role at anthropic</p>
+            <div class="ask-inline-doc-card" id="ask-initial-doc-card">
+              <div class="ask-doc-card">
+                <div class="ask-doc-card-left">
+                  <div class="ask-doc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                  <div><div class="ask-doc-title-text" id="ask-card-title">V1 &bull; Cover letter for Anthropic</div><div class="ask-doc-type">Document &bull; PDF</div></div>
+                </div>
+                <button class="ask-download-btn">Download</button>
+              </div>
+              <div class="doc-card-actions-row" id="initial-card-actions">
+                <div class="dca-left">
+                  <button class="icon-btn dca-prev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+                  <span class="dca-page-label">1 / 1</span>
+                  <button class="icon-btn dca-next"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                </div>
+                <div class="dca-right">
+                  <button class="icon-btn dca-copy" title="Copy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+                  <button class="icon-btn dca-refresh" title="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></button>
+                  <button class="icon-btn danger dca-trash" title="Delete"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                </div>
+              </div>
+            </div>
+            <div class="ask-deleted-msg" id="ask-deleted-msg" style="display:none;">
+              <span>Message was deleted</span>
+              <button class="undo-btn" id="ask-undo-delete" title="Undo delete"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
+            </div>
+            </div>
+            </div>
+          </div>
+          <div class="ask-reply-bar">
+            <div class="ask-reply-wrap">
+              <textarea class="input-field reply" id="ask-reply-field" placeholder="How can I help you?" rows="1"></textarea>
+              <div class="input-tb">
+                <div class="tb-left"><button class="plus-icon-btn" title="Attach"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
+                <div class="tb-right">
+                  <button class="model-sel"><b>Opus 4.6</b>&nbsp;<span style="color:var(--text-sec)">Extended</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+                  <button class="voice-btn" id="ask-voice"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg></button>
+                  <button class="send-btn disabled" id="ask-send" style="display:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+                  <button class="send-btn stop" id="ask-stop" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></button>
+                </div>
+              </div>
+            </div>
+            <p class="disclaimer">Claude is AI and can make mistakes. Please double-check responses.</p>
+          </div>
+        </div>
+        <div class="ask-resize-handle" id="ask-resize-handle"></div>
+        <div class="ask-right" id="ask-right">
+          <div class="ask-doc-hdr">
+            <div class="version-tabs" id="version-tabs"></div>
+          </div>
+          <div class="ask-doc-toolbar" id="ask-doc-toolbar">
+            <div class="adt-left">
+              <div class="adt-pagination">
+                <button class="ver-btn" id="ask-ver-prev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+                <span class="ver-label" id="ask-ver-label">1 / 1</span>
+                <button class="ver-btn disabled" id="ask-ver-next"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+              </div>
+              <span class="adt-ver-info" id="adt-ver-info">Version 1 &bull; PDF</span>
+            </div>
+            <div class="adt-right">
+              <div class="adt-copy-group">
+                <button class="adt-copy-btn">Copy</button>
+                <button class="adt-copy-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+              </div>
+              <button class="adt-icon-btn" title="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button>
+              <button class="adt-icon-btn" id="adt-close" title="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+            </div>
+          </div>
+          <div class="ask-doc-scroll" id="ask-doc-scroll">
+            <h1 class="ask-doc-heading">Cover letter for Anthropic</h1>
+            <div id="ask-doc-content" contenteditable="true" spellcheck="false"></div>
+            <div id="ask-skeleton"><div class="skel-line" style="width:100%"></div><div class="skel-line" style="width:100%"></div><div class="skel-line" style="width:100%"></div><div class="skel-line" style="width:100%"></div><div class="skel-line" style="width:60%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="rubber-band"></div>
+
+<div id="inline-sel-tb">
+  <button id="ist-reply" class="ist-btn" title="Reply"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>Reply</button>
+  <button id="ist-iterate" class="ist-btn primary" title="Iterate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Iterate</button>
+</div>
+
+<div id="inline-prompt-card">
+  <textarea id="ipc-field" rows="1" placeholder="I don't like this part can you fix it?"></textarea>
+  <div class="ipc-row">
+    <button id="ipc-plus"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button id="ipc-send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const V1_HTML = `<p>Dear Hiring Team,</p><p>I\u2019m writing to express my strong interest in the Product Designer role at Anthropic. The opportunity to shape how millions of people experience AI\u2014designing interactions that don\u2019t yet have established conventions\u2014is exactly the kind of design challenge I\u2019ve spent my career preparing for. Anthropic\u2019s commitment to building AI that is reliable, interpretable, and steerable resonates deeply with how I approach design: with intention, rigor, and an unwavering focus on the people I\u2019m designing for.</p><p>Over the past [X] years, I\u2019ve led end-to-end product design for [describe your most relevant product/company\u2014e.g., complex B2B platforms, consumer-facing products used at scale, developer tools]. At [Company], I [specific accomplishment\u2014e.g., redesigned the core workflow experience, reducing time-on-task by 40% and increasing user retention by 25%]. I thrive in environments where ambiguity is the starting point, not the obstacle\u2014where I need to understand emerging capabilities, prototype rapidly, and iterate my way toward clarity.</p><p>What draws me to Anthropic specifically is the design team\u2019s position at the intersection of craft, research, and product intuition. I\u2019ve always believed the best design work happens when you stay close to the underlying technology, and the idea of designing around capabilities that are emerging in real-time\u2014shaping whether Claude feels like a tool or a trusted collaborator\u2014is a once-in-a-generation opportunity. I\u2019m particularly excited by the challenge of building trust through interaction design: making AI systems that users can understand, rely on, and feel confident using.</p><p>I bring a strong craft sensibility paired with technical fluency. I prototype in code (HTML, CSS, and JavaScript) to communicate ideas with the fidelity they deserve, and I\u2019ve found this especially valuable when designing novel interaction patterns that static mockups can\u2019t fully convey.</p><p>I\u2019d welcome the chance to share my portfolio and discuss how my experience could contribute to Anthropic\u2019s design team. I\u2019m deeply motivated by the mission of making AI safe and beneficial, and I\u2019d be honored to help shape what that looks and feels like for the people who use it every day.</p><p>Warm regards,<br>[Your Name]</p>`;
+
+const V2_HTML = `<p>Dear Hiring Team,</p><p>I\u2019m writing to express my strong interest in the Product Designer role at Anthropic. The opportunity to shape how millions of people experience AI\u2014designing interactions that don\u2019t yet have established conventions\u2014is exactly the kind of design challenge I\u2019ve spent my career preparing for. Anthropic\u2019s commitment to building AI that is reliable, interpretable, and steerable resonates deeply with how I approach design: with intention, rigor, and an unwavering focus on the people I\u2019m designing for.</p><p>Over the past five years, I\u2019ve led end-to-end product design for complex, data-rich platforms used at massive scale. As a Senior Product Designer at Groww\u2014a trading platform serving over 60 million customers\u2014I owned the Derivatives pod, building tools for professional traders managing high-frequency workflows. My flagship project, Option Chain, was a year-long initiative to design a customizable interface for viewing real-time derivatives data. I shipped it in two phases\u2014an MVP to validate core workflows, then a full rollout across terminal, web, and mobile\u2014with micro-interactions like center-spine snapping and custom haptics for frame-level precision. Over 300,000 traders use it daily. This experience of designing for speed, density, and trust under real-time constraints feels directly relevant to designing AI interfaces where responsiveness and clarity are everything.</p><p>What draws me to Anthropic specifically is the design team\u2019s position at the intersection of craft, research, and product intuition. I\u2019ve always believed the best design work happens when you stay close to the underlying technology, and I got a taste of this at Groww when I led the design for their Trading APIs Platform\u2014a product that lets traders build AI-powered agents and automated strategies. I designed it to manage AI\u2019s unpredictable outputs, clearly surfacing errors, states, and feedback.</p><p>I bring a strong craft sensibility paired with technical fluency. I prototype in code (HTML, CSS, and JavaScript) to communicate ideas with the fidelity they deserve, and I\u2019ve found this especially valuable when designing novel interaction patterns that static mockups can\u2019t fully convey.</p><p>I\u2019d welcome the chance to share my portfolio and discuss how my experience could contribute to Anthropic\u2019s design team. I\u2019m deeply motivated by the mission of making AI safe and beneficial, and I\u2019d be honored to help shape what that looks and feels like for the people who use it every day.</p><p>Warm regards,<br>Rakshit</p>`;
+
+const PARAS_V1_TEXT = [
+  'Dear Hiring Team,',
+  'I\u2019m writing to express my strong interest in the Product Designer role at Anthropic. The opportunity to shape how millions of people experience AI\u2014designing interactions that don\u2019t yet have established conventions\u2014is exactly the kind of design challenge I\u2019ve spent my career preparing for. Anthropic\u2019s commitment to building AI that is reliable, interpretable, and steerable resonates deeply with how I approach design: with intention, rigor, and an unwavering focus on the people I\u2019m designing for.',
+  'Over the past [X] years, I\u2019ve led end-to-end product design for [describe your most relevant product/company\u2014e.g., complex B2B platforms, consumer-facing products used at scale, developer tools]. At [Company], I [specific accomplishment\u2014e.g., redesigned the core workflow experience, reducing time-on-task by 40% and increasing user retention by 25%]. I thrive in environments where ambiguity is the starting point, not the obstacle\u2014where I need to understand emerging capabilities, prototype rapidly, and iterate my way toward clarity.',
+  'What draws me to Anthropic specifically is the design team\u2019s position at the intersection of craft, research, and product intuition. I\u2019ve always believed the best design work happens when you stay close to the underlying technology, and the idea of designing around capabilities that are emerging in real-time\u2014shaping whether Claude feels like a tool or a trusted collaborator\u2014is a once-in-a-generation opportunity. I\u2019m particularly excited by the challenge of building trust through interaction design: making AI systems that users can understand, rely on, and feel confident using.',
+  'I bring a strong craft sensibility paired with technical fluency. I prototype in code (HTML, CSS, and JavaScript) to communicate ideas with the fidelity they deserve, and I\u2019ve found this especially valuable when designing novel interaction patterns that static mockups can\u2019t fully convey.',
+  'I\u2019d welcome the chance to share my portfolio and discuss how my experience could contribute to Anthropic\u2019s design team. I\u2019m deeply motivated by the mission of making AI safe and beneficial, and I\u2019d be honored to help shape what that looks and feels like for the people who use it every day.',
+  'Warm regards,\n[Your Name]',
+];
+
+const V2_REPLACE_PARA = 'Over the past five years, I\u2019ve led end-to-end product design for complex, data-rich platforms used at massive scale. As a Senior Product Designer at Groww\u2014a trading platform serving over 60 million customers\u2014I owned the Derivatives pod, building tools for professional traders managing high-frequency workflows. My flagship project, Option Chain, was a year-long initiative to design a customizable interface for viewing real-time derivatives data. I shipped it in two phases\u2014an MVP to validate core workflows, then a full rollout across terminal, web, and mobile\u2014with micro-interactions like center-spine snapping and custom haptics for frame-level precision. Over 300,000 traders use it daily. This experience of designing for speed, density, and trust under real-time constraints feels directly relevant to designing AI interfaces where responsiveness and clarity are everything.';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let screenMode = 'home';
+let isStreaming = false;
+let selectedCards = new Set();
+let nextVersionX = 0, nextCtxY = 0;
+const PANEL_W = 490, CTX_X_OFF = 570, CTX_GAP = 14, VER_STEP = 870;
+let camX = 48, camY = 48, camScale = 1;
+const CAM_MIN = 0.1, CAM_MAX = 3;
+let spaceDown = false, isPanning = false, panOrigin = null;
+let dragCard = null, dragGroup = [];
+let rbActive = false, rbStartX = 0, rbStartY = 0;
+let askDocDeleted = false;
+let iterCardOriginals = new Map();
+
+// Shared version store -- both Ask and Iterate read from this
+const versions = [];   // [{html, label}]
+let viewingVersion = 0; // 0-indexed, currently viewed in ask panel
+let iterCanvasReady = false;
+
+// ── DOM ────────────────────────────────────────────────────────────────────
+const homeScreen = document.getElementById('home-screen');
+const iterScreen = document.getElementById('iterate-screen');
+const askScreen  = document.getElementById('ask-screen');
+const canvasPane = document.getElementById('canvas-pane');
+const canvasWorld= document.getElementById('canvas-world');
+const canvasLayout=document.getElementById('canvas-layout');
+const canvasTools= document.getElementById('canvas-tools');
+const feedbackTb = document.getElementById('feedback-tb');
+const homeField  = document.getElementById('home-field');
+const homeSend   = document.getElementById('home-send');
+const homeVoice  = document.getElementById('home-voice');
+const canvasField= document.getElementById('canvas-field');
+const canvasSend = document.getElementById('canvas-send');
+const canvasVoice= document.getElementById('canvas-voice');
+const selBadge   = document.getElementById('sel-badge');
+const selCount   = document.getElementById('sel-count');
+const rubberBand = document.getElementById('rubber-band');
+const docTitleEl = document.getElementById('doc-title-text');
+const askTitleEl = document.getElementById('ask-title-text');
+const askUserBub = document.getElementById('ask-user-bubble');
+const askDocContent = document.getElementById('ask-doc-content');
+const askDocScroll  = document.getElementById('ask-doc-scroll');
+const askSkeleton   = document.getElementById('ask-skeleton');
+const versionTabsEl = document.getElementById('version-tabs');
+const askCardNav    = document.getElementById('ask-card-nav');
+const askCardVerLbl = document.getElementById('ask-card-ver-label');
+const askVerPrev    = document.getElementById('ask-ver-prev');
+const askVerNext    = document.getElementById('ask-ver-next');
+const askVerLabel   = document.getElementById('ask-ver-label');
+const adtVerInfo    = document.getElementById('adt-ver-info');
+const askReplyField = document.getElementById('ask-reply-field');
+const askSendBtn    = document.getElementById('ask-send');
+const askLeft       = document.getElementById('ask-left');
+const askRight      = document.getElementById('ask-right');
+const askCardWrap   = document.getElementById('ask-initial-doc-card');
+const askAiLabel    = document.getElementById('ask-ai-label');
+const askDeletedMsg = document.getElementById('ask-deleted-msg');
+const inlineSelTb   = document.getElementById('inline-sel-tb');
+const inlinePromptCard = document.getElementById('inline-prompt-card');
+const ipcField      = document.getElementById('ipc-field');
+const ipcSend       = document.getElementById('ipc-send');
+const initialCardActions = document.getElementById('initial-card-actions');
+const askStopBtn  = document.getElementById('ask-stop');
+const askVoiceBtn = document.getElementById('ask-voice');
+
+function autoResize(el, max) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, max) + 'px'; }
+function syncSend(field, sendBtn, voiceBtn) {
+  const has = field.value.trim().length > 0;
+  if (voiceBtn) voiceBtn.style.display = has ? 'none' : '';
+  sendBtn.style.display = has ? '' : 'none';
+  sendBtn.classList.toggle('ready', has);
+  sendBtn.classList.toggle('disabled', !has);
+}
+
+function enterGeneratingState() {
+  askReplyField.value = '';
+  askReplyField.placeholder = 'Generating with love....';
+  askReplyField.disabled = true;
+  askVoiceBtn.style.display = 'none';
+  askSendBtn.style.display = 'none';
+  askStopBtn.style.display = '';
+}
+
+function exitGeneratingState() {
+  askReplyField.placeholder = 'How can I help you?';
+  askReplyField.disabled = false;
+  askStopBtn.style.display = 'none';
+  askVoiceBtn.style.display = '';
+  askSendBtn.style.display = 'none';
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function createMsgGroup() {
+  const group = document.createElement('div');
+  group.className = 'chat-msg-group';
+  const hoverRow = document.createElement('div');
+  hoverRow.className = 'chat-msg-hover-delete';
+  hoverRow.innerHTML = '<button class="icon-btn danger msg-delete-btn" title="Delete"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
+  group.appendChild(hoverRow);
+
+  hoverRow.querySelector('.msg-delete-btn').addEventListener('click', () => {
+    const deleted = document.createElement('div');
+    deleted.className = 'ask-deleted-msg';
+    deleted.style.display = 'flex';
+    deleted.innerHTML = '<span>Message was deleted</span><button class="undo-btn" title="Undo delete"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>';
+    group.style.display = 'none';
+    group.parentNode.insertBefore(deleted, group.nextSibling);
+    deleted.querySelector('.undo-btn').addEventListener('click', () => {
+      group.style.display = '';
+      deleted.remove();
+    });
+  });
+
+  return group;
+}
+
+// ═══ RESIZABLE PANES ════════════════════════════════════════════════════════
+(function() {
+  const handle = document.getElementById('ask-resize-handle');
+  const split = handle.parentElement;
+  let dragging = false;
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const rect = split.getBoundingClientRect();
+    const offset = e.clientX - rect.left;
+    const pct = (offset / rect.width) * 100;
+    const clamped = Math.min(Math.max(pct, 25), 75);
+    askLeft.style.width = clamped + '%';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// ═══ HOME ══════════════════════════════════════════════════════════════════
+homeField.addEventListener('input', () => { autoResize(homeField, 180); syncSend(homeField, homeSend, homeVoice); });
+homeField.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitHome(); } });
+homeSend.addEventListener('click', submitHome);
+
+function submitHome() {
+  const q = homeField.value.trim();
+  if (!q || isStreaming) return;
+  isStreaming = true;
+  const short = q.length > 40 ? q.slice(0, 38) + '\u2026' : q;
+  docTitleEl.textContent = short;
+  askTitleEl.textContent = short;
+  askUserBub.textContent = q;
+  homeScreen.classList.add('hiding');
+  homeField.dataset.lastQuery = q;
+
+  const label = 'V1 \u2022 Cover letter for Anthropic';
+  const verIdx = addVersion(V1_HTML, label);
+  viewingVersion = verIdx;
+
+  setTimeout(() => {
+    goAskMode();
+    enterGeneratingState();
+    addVersionTab(verIdx, label, true);
+    askDocContent.innerHTML = '';
+    askSkeleton.style.display = 'block';
+    askDocContent.appendChild(askSkeleton);
+
+    setTimeout(() => {
+      askSkeleton.style.display = 'none';
+      askSkeleton.remove();
+      askDocContent.innerHTML = '';
+      const cursor = document.createElement('span'); cursor.className = 'scursor';
+      askDocContent.appendChild(cursor);
+      streamInto(askDocContent, cursor, V1_HTML, () => {
+        isStreaming = false;
+        exitGeneratingState();
+      });
+    }, 1000 + Math.random() * 300);
+  }, 220);
+}
+
+function addVersion(html, label) {
+  versions.push({ html, label, revisions: [html], currentRevision: 0 });
+  return versions.length - 1;
+}
+
+// ═══ MODE SWITCHING ════════════════════════════════════════════════════════
+function goIterateMode() {
+  screenMode = 'iterate';
+  iterScreen.classList.add('visible');
+  askScreen.classList.remove('visible');
+  document.getElementById('dpill-iter').classList.add('active');
+  document.getElementById('dpill-ask').classList.remove('active');
+  document.getElementById('apill-iter').classList.add('active');
+  document.getElementById('apill-ask').classList.remove('active');
+}
+function goAskMode() {
+  screenMode = 'ask';
+  askScreen.classList.add('visible');
+  iterScreen.classList.remove('visible');
+  document.getElementById('apill-ask').classList.add('active');
+  document.getElementById('apill-iter').classList.remove('active');
+  document.getElementById('dpill-ask').classList.add('active');
+  document.getElementById('dpill-iter').classList.remove('active');
+}
+
+const iterSidebars = [];
+const SIDEBAR_GAP = 24;
+const SIDEBAR_LEFT_START = 52;
+
+function createIterSidebarPanel(prompt, verIdx) {
+  const sb = document.createElement('div');
+  sb.className = 'iter-sidebar';
+  const panelId = 'iter-sb-' + Date.now();
+  sb.id = panelId;
+  sb.dataset.verIdx = verIdx;
+
+  const leftPos = SIDEBAR_LEFT_START + iterSidebars.length * (PANEL_W + SIDEBAR_GAP + CTX_X_OFF - PANEL_W + 50);
+  sb.style.left = leftPos + 'px';
+
+  const v = versions[verIdx];
+  const label = v ? v.label.toUpperCase() : '';
+  const revTotal = v ? v.revisions.length : 1;
+  const revCur = v ? v.currentRevision + 1 : 1;
+  const showNav = revTotal > 1;
+
+  sb.innerHTML =
+    '<div class="iter-sidebar-header"><div class="iter-sidebar-prompt">' + esc(prompt) + '</div></div>' +
+    '<div class="iter-sidebar-content">' +
+      '<div class="iter-version-bar">' +
+        '<span class="iter-version-title">' + label + '</span>' +
+        '<div class="iter-version-nav"' + (showNav ? '' : ' style="display:none"') + '>' +
+          '<button class="ver-btn iter-sb-prev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' +
+          '<span class="ver-label iter-sb-ver-label">' + revCur + ' / ' + revTotal + '</span>' +
+          '<button class="ver-btn iter-sb-next"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="iter-body"></div>' +
+    '</div>';
+
+  canvasLayout.appendChild(sb);
+
+  const bodyEl = sb.querySelector('.iter-body');
+  const titleEl = sb.querySelector('.iter-version-title');
+  const navEl = sb.querySelector('.iter-version-nav');
+  const labelEl = sb.querySelector('.iter-sb-ver-label');
+
+  const panelData = { el: sb, bodyEl, titleEl, navEl, labelEl, verIdx, prompt };
+  iterSidebars.push(panelData);
+  makeDraggable(sb);
+
+  sb.addEventListener('click', e => {
+    if (e.target.closest('button, textarea, [contenteditable="true"], input, a')) return;
+    sb.classList.toggle('selected');
+    if (sb.classList.contains('selected')) selectedCards.add(panelId);
+    else selectedCards.delete(panelId);
+    updateSelBadge();
+  });
+
+  sb.querySelector('.iter-sb-prev').addEventListener('click', () => {
+    if (isStreaming) return;
+    const v = versions[panelData.verIdx];
+    if (!v || v.currentRevision <= 0) return;
+    v.currentRevision--;
+    bodyEl.innerHTML = v.revisions[v.currentRevision];
+    bodyEl.contentEditable = 'true';
+    updatePanelNav(panelData);
+  });
+  sb.querySelector('.iter-sb-next').addEventListener('click', () => {
+    if (isStreaming) return;
+    const v = versions[panelData.verIdx];
+    if (!v || v.currentRevision >= v.revisions.length - 1) return;
+    v.currentRevision++;
+    bodyEl.innerHTML = v.revisions[v.currentRevision];
+    bodyEl.contentEditable = 'true';
+    updatePanelNav(panelData);
+  });
+
+  return panelData;
+}
+
+function updatePanelNav(panel) {
+  const v = versions[panel.verIdx];
+  if (!v) return;
+  const total = v.revisions.length;
+  const cur = v.currentRevision + 1;
+  panel.labelEl.textContent = cur + ' / ' + total;
+  panel.navEl.style.display = total > 1 ? '' : 'none';
+}
+
+const CTX_AREA_W = 340;
+function positionSidebars() {
+  iterSidebars.forEach((panel, i) => {
+    const left = SIDEBAR_LEFT_START + i * (PANEL_W + CTX_AREA_W);
+    panel.el.style.left = left + 'px';
+  });
+}
+
+function renderFirstSidebar() {
+  if (versions.length === 0 || iterSidebars.length > 0) return;
+  const prompt = homeField.dataset.lastQuery || 'Help me draft a cover letter for a role at Anthropic';
+  const panel = createIterSidebarPanel(prompt, 0);
+  positionSidebars();
+  const v = versions[0];
+  panel.bodyEl.innerHTML = v.revisions[v.currentRevision];
+  panel.bodyEl.contentEditable = 'true';
+  updatePanelNav(panel);
+  nextCtxY = 66;
+}
+
+function ensureIterateCanvas() {
+  if (iterCanvasReady) return;
+  iterCanvasReady = true;
+  canvasPane.classList.add('has-grid');
+  canvasTools.classList.add('show');
+  feedbackTb.classList.add('show');
+  initCamera();
+  renderFirstSidebar();
+}
+
+document.getElementById('dpill-ask').addEventListener('click', () => {
+  if (screenMode === 'ask') return;
+  goAskMode();
+  syncAskToVersions();
+});
+document.getElementById('dpill-iter').addEventListener('click', () => {
+  if (screenMode === 'iterate') return;
+  goIterateMode();
+  ensureIterateCanvas();
+});
+document.getElementById('apill-ask').addEventListener('click', () => {});
+document.getElementById('apill-iter').addEventListener('click', () => {
+  if (screenMode === 'iterate') return;
+  goIterateMode();
+  ensureIterateCanvas();
+});
+
+function syncAskToVersions() {
+  const existingTabs = versionTabsEl.querySelectorAll('.version-tab').length;
+  versions.forEach((v, i) => {
+    if (i >= existingTabs) addVersionTab(i, v.label, false);
+  });
+  activateVersionTab(versions.length - 1);
+}
+
+// ═══ CANVAS INPUT ══════════════════════════════════════════════════════════
+canvasField.addEventListener('input', () => { autoResize(canvasField, 140); syncCanvasSend(); });
+canvasField.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitCanvas(); } });
+canvasSend.addEventListener('click', submitCanvas);
+
+function syncCanvasSend() {
+  const has = canvasField.value.trim().length > 0;
+  if (canvasVoice) canvasVoice.style.display = has ? 'none' : '';
+  canvasSend.style.display = has ? '' : 'none';
+  canvasSend.classList.toggle('ready', has);
+  canvasSend.classList.toggle('disabled', !has);
+}
+function submitCanvas() {
+  const text = canvasField.value.trim();
+  if (!text || isStreaming) return;
+  if (!iterCanvasReady) {
+    iterCanvasReady = true;
+    canvasPane.classList.add('has-grid');
+    canvasTools.classList.add('show');
+    feedbackTb.classList.add('show');
+    initCamera();
+  }
+  doGenerate(text);
+}
+
+// ═══ CANVAS GENERATE ═══════════════════════════════════════════════════════
+function doGenerate(prompt) {
+  if (isStreaming) return;
+  isStreaming = true;
+  canvasField.value = ''; canvasField.style.height = 'auto'; homeField.value = '';
+  syncCanvasSend();
+  canvasSend.style.display = '';
+  canvasSend.classList.remove('disabled','ready');
+  canvasSend.classList.add('stop');
+  canvasSend.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>';
+
+  const verNum = versions.length + 1;
+  const label = 'V' + verNum + ' \u2022 Cover letter for Anthropic';
+  const html = verNum === 1 ? V1_HTML : V2_HTML;
+
+  const verIdx = addVersion(html, label);
+  clearSelections();
+
+  const panel = createIterSidebarPanel(prompt, verIdx);
+  positionSidebars();
+  nextCtxY = 66;
+
+  panel.bodyEl.innerHTML = '';
+  panel.bodyEl.contentEditable = 'false';
+  const skelHtml = '<div class="skel-group"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div></div>'.repeat(3);
+  panel.bodyEl.innerHTML = skelHtml;
+
+  if (iterSidebars.length > 1) {
+    const newLeft = parseFloat(panel.el.style.left) || 0;
+    const targetCamX = -(newLeft - 200) * camScale + 48;
+    camX = targetCamX;
+    applyTransform(true);
+  }
+
+  setTimeout(() => {
+    panel.bodyEl.innerHTML = '';
+    const cursor = document.createElement('span'); cursor.className = 'scursor';
+    panel.bodyEl.appendChild(cursor);
+    streamInto(panel.bodyEl, cursor, html, () => {
+      panel.bodyEl.contentEditable = 'true';
+      isStreaming = false;
+      updatePanelNav(panel);
+      canvasSend.classList.remove('stop'); canvasSend.classList.add('disabled');
+      canvasSend.style.display = 'none';
+      canvasSend.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+      if (canvasVoice) canvasVoice.style.display = '';
+    });
+  }, 950 + Math.random() * 300);
+}
+
+function createVersionCard(label, x, y) {
+  const card = document.createElement('div');
+  card.className = 'canvas-card ver-card';
+  card.id = 'card-' + Date.now();
+  card.style.left = x + 'px'; card.style.top = y + 'px';
+  let skelHtml = '';
+  for (let g = 0; g < 5; g++) {
+    skelHtml += '<div class="skel-group">';
+    for (let l = 0; l < 5; l++) skelHtml += '<div class="skel" style="width:' + (80+Math.floor(Math.random()*18)) + '%"></div>';
+    skelHtml += '</div>';
+  }
+  card.innerHTML = '<div class="ver-title">' + esc(label) + '</div><div class="ver-body">' + skelHtml + '</div>';
+  return card;
+}
+
+// ═══ CANVAS TOOL SELECTION ══════════════════════════════════════════════════
+let activeTool = 'select';
+const toolBtns = canvasTools.querySelectorAll('.tool-btn');
+toolBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tool = btn.dataset.tool;
+    if (tool === 'note' || tool === 'attach') return;
+    toolBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTool = tool;
+    if (tool === 'hand') { canvasPane.style.cursor = 'grab'; }
+    else { canvasPane.style.cursor = ''; }
+  });
+});
+
+// ═══ CONTEXT CARDS (note, file, link) ══════════════════════════════════════
+document.getElementById('btn-attach').addEventListener('click', () => { if (!isStreaming) addFileCard("Rakshit's Resume", "Document \u00b7 PDF"); });
+document.getElementById('btn-note').addEventListener('click', addNoteCard);
+document.getElementById('btn-attach-ctx').addEventListener('click', () => addFileCard("Rakshit's Resume", "Document \u00b7 PDF"));
+const btnLink = document.getElementById('btn-link');
+if (btnLink) btnLink.addEventListener('click', () => addLinkCard());
+
+function getCtxCardLeft() {
+  if (iterSidebars.length === 0) return CTX_X_OFF;
+  const firstPanel = iterSidebars[0];
+  const sbLeft = parseFloat(firstPanel.el.style.left) || SIDEBAR_LEFT_START;
+  return sbLeft + PANEL_W + 40;
+}
+
+function addCtxBubble(text, name, time) {
+  const card = document.createElement('div');
+  card.className = 'canvas-card ctx-bubble-card';
+  card.id = 'card-' + Date.now();
+  const cx = getCtxCardLeft();
+  card.style.left = cx + 'px'; card.style.top = nextCtxY + 'px';
+  card.innerHTML = '<div class="ctx-bubble-text">' + esc(text) + '</div><div class="ctx-bubble-meta">' + esc(name) + ' \u00b7 ' + time + '</div>';
+  canvasLayout.appendChild(card); makeDraggable(card);
+  requestAnimationFrame(() => { nextCtxY += card.offsetHeight + CTX_GAP; });
+}
+
+function addFileCard(name, meta) {
+  const card = document.createElement('div');
+  card.className = 'canvas-card file-card';
+  card.id = 'card-' + Date.now();
+  const cx = getCtxCardLeft();
+  card.style.left = cx + 'px'; card.style.top = nextCtxY + 'px';
+  card.innerHTML = '<div class="file-row"><div class="file-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg></div><div class="file-meta"><div class="file-name">' + esc(name) + '</div><div class="file-type">' + esc(meta) + '</div></div></div>';
+  canvasLayout.appendChild(card); makeDraggable(card);
+  requestAnimationFrame(() => { nextCtxY += card.offsetHeight + CTX_GAP; });
+  autoPanToCard(card);
+}
+
+let noteColorIdx = 0;
+const NOTE_COLORS = ['', 'green', 'red'];
+function addNoteCard() {
+  const card = document.createElement('div');
+  const colorClass = NOTE_COLORS[noteColorIdx % 3];
+  card.className = 'canvas-card note-card' + (colorClass ? ' ' + colorClass : '');
+  card.id = 'card-' + Date.now();
+  noteColorIdx++;
+  const cx = getCtxCardLeft();
+  card.style.left = cx + 'px'; card.style.top = nextCtxY + 'px';
+  const now = new Date();
+  const h = now.getHours(); const m = String(now.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  const time = h12 + ':' + m + ' ' + ampm;
+  card.innerHTML = '<textarea class="note-ta" placeholder="Write a note\u2026" rows="2"></textarea><div class="note-meta">Rakshit \u00b7 ' + time + '</div>';
+  canvasLayout.appendChild(card); makeDraggable(card);
+  const ta = card.querySelector('.note-ta');
+  ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; });
+  ta.addEventListener('mousedown', e => e.stopPropagation());
+  setTimeout(() => ta.focus(), 60);
+  nextCtxY += 140 + CTX_GAP;
+  autoPanToCard(card);
+}
+
+function addLinkCard(url) {
+  url = url || 'https://job-boards.greenhouse.io/anthropic/jobs/5152817008';
+  const card = document.createElement('div');
+  card.className = 'canvas-card link-card';
+  card.id = 'card-' + Date.now();
+  const cx = getCtxCardLeft();
+  card.style.left = cx + 'px'; card.style.top = nextCtxY + 'px';
+  const now = new Date();
+  const time = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0') + ' ' + (now.getHours() >= 12 ? 'PM' : 'AM');
+  card.innerHTML = '<div class="link-row"><div class="link-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><div class="link-meta"><a class="link-url" href="#" title="' + esc(url) + '">' + esc(url) + '</a><div class="link-attr">Rakshit \u00b7 ' + time + ' \u00b7 Link</div></div></div>';
+  canvasLayout.appendChild(card); makeDraggable(card);
+  requestAnimationFrame(() => { nextCtxY += card.offsetHeight + CTX_GAP; });
+  autoPanToCard(card);
+}
+
+// ═══ DRAGGING ══════════════════════════════════════════════════════════════
+let dragStartMouseX = 0, dragStartMouseY = 0;
+function makeDraggable(card) {
+  card.addEventListener('mousedown', e => {
+    if (e.button !== 0 || e.target.closest('textarea, [contenteditable="true"], button, input, a')) return;
+    e.stopPropagation(); e.preventDefault();
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    dragCard = card; dragStartMouseX = e.clientX; dragStartMouseY = e.clientY;
+    card.classList.add('is-dragging'); card.style.zIndex = '30';
+    dragGroup = [];
+    if (selectedCards.has(card.id)) {
+      selectedCards.forEach(id => { const el = document.getElementById(id); if (el) { dragGroup.push({el, startLeft: parseFloat(el.style.left)||0, startTop: parseFloat(el.style.top)||0}); if (el !== card) el.classList.add('is-dragging'); } });
+    } else { dragGroup.push({el: card, startLeft: parseFloat(card.style.left)||0, startTop: parseFloat(card.style.top)||0}); }
+  });
+}
+document.addEventListener('mousemove', e => {
+  if (!dragCard) return;
+  const dx = (e.clientX - dragStartMouseX)/camScale, dy = (e.clientY - dragStartMouseY)/camScale;
+  dragGroup.forEach(i => { i.el.style.left = (i.startLeft+dx)+'px'; i.el.style.top = (i.startTop+dy)+'px'; });
+});
+document.addEventListener('mouseup', () => {
+  if (!dragCard) return;
+  dragGroup.forEach(i => { i.el.classList.remove('is-dragging'); i.el.style.zIndex = ''; });
+  dragCard = null; dragGroup = [];
+});
+
+// ═══ SELECTION ═════════════════════════════════════════════════════════════
+canvasLayout.addEventListener('click', e => {
+  const card = e.target.closest('.canvas-card');
+  if (!card || e.target.closest('textarea, [contenteditable="true"], button, input, a')) return;
+  if (card.classList.contains('selected')) { card.classList.remove('selected'); selectedCards.delete(card.id); }
+  else { card.classList.add('selected'); selectedCards.add(card.id); }
+  updateSelBadge();
+});
+canvasPane.addEventListener('mousedown', e => {
+  if (e.button !== 0 || e.target.closest('.canvas-card, .iter-sidebar') || e.target.closest('#canvas-input-bar, textarea, input, button, [contenteditable]') || spaceDown || screenMode !== 'iterate') return;
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  clearSelections();
+  rbActive = true; rbStartX = e.clientX; rbStartY = e.clientY;
+  rubberBand.style.display = 'block'; rubberBand.style.left = e.clientX+'px'; rubberBand.style.top = e.clientY+'px';
+  rubberBand.style.width = '0px'; rubberBand.style.height = '0px'; e.preventDefault();
+});
+document.addEventListener('mousemove', e => {
+  if (!rbActive) return;
+  rubberBand.style.left = Math.min(e.clientX, rbStartX)+'px'; rubberBand.style.top = Math.min(e.clientY, rbStartY)+'px';
+  rubberBand.style.width = Math.abs(e.clientX - rbStartX)+'px'; rubberBand.style.height = Math.abs(e.clientY - rbStartY)+'px';
+});
+document.addEventListener('mouseup', e => {
+  if (!rbActive) return;
+  rbActive = false; rubberBand.style.display = 'none';
+  const r = {left: Math.min(e.clientX, rbStartX), top: Math.min(e.clientY, rbStartY), right: Math.max(e.clientX, rbStartX), bottom: Math.max(e.clientY, rbStartY)};
+  if (r.right - r.left < 6 && r.bottom - r.top < 6) return;
+  canvasLayout.querySelectorAll('.canvas-card, .iter-sidebar').forEach(card => {
+    const cr = card.getBoundingClientRect();
+    if (cr.left < r.right && cr.right > r.left && cr.top < r.bottom && cr.bottom > r.top) {
+      card.classList.add('selected'); selectedCards.add(card.id);
+    }
+  });
+  updateSelBadge();
+});
+function clearSelections() {
+  selectedCards.clear();
+  canvasLayout.querySelectorAll('.canvas-card.selected, .iter-sidebar.selected').forEach(c => c.classList.remove('selected'));
+  updateSelBadge();
+}
+function updateSelBadge() {
+  const n = selectedCards.size;
+  selCount.textContent = n;
+  selBadge.classList.toggle('on', n > 0);
+  syncCanvasSend();
+}
+
+// ═══ CAMERA ════════════════════════════════════════════════════════════════
+function initCamera() { camX = 48; camY = 48; camScale = 1; applyTransform(false); }
+function applyTransform(anim) {
+  canvasWorld.style.transition = anim ? 'transform 320ms cubic-bezier(.22,.68,0,1.2)' : 'none';
+  canvasWorld.style.transform = 'translate(' + camX + 'px,' + camY + 'px) scale(' + camScale + ')';
+  document.getElementById('zoom-pct').textContent = Math.round(camScale*100);
+}
+function zoomAt(cx,cy,f) {
+  const ns = Math.min(CAM_MAX, Math.max(CAM_MIN, camScale*f));
+  const wx = (cx-camX)/camScale, wy = (cy-camY)/camScale;
+  camX = cx-wx*ns; camY = cy-wy*ns; camScale = ns;
+}
+canvasPane.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = canvasPane.getBoundingClientRect();
+  zoomAt(e.clientX-r.left, e.clientY-r.top, e.deltaY < 0 ? 1.07 : 1/1.07);
+  applyTransform(false);
+}, {passive:false});
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !e.target.matches('textarea,input,[contenteditable]')) {
+    if (!spaceDown) { spaceDown = true; canvasPane.style.cursor = 'grab'; } e.preventDefault();
+  }
+  if (e.key === 'Escape') { hideInlineSelTb(); hideIPC(); clearSelections(); }
+  if (e.target.matches('textarea, input, [contenteditable]')) return;
+  if (screenMode !== 'iterate') return;
+  if (e.key === 'v' || e.key === 'V') { document.getElementById('btn-select').click(); }
+  if (e.key === 's' || e.key === 'S') addNoteCard();
+  if (e.key === 'l' || e.key === 'L') addLinkCard();
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCards.size > 0) {
+    e.preventDefault();
+    [...selectedCards].forEach(id => { const el = document.getElementById(id); if (el) { el.style.transition = 'opacity 180ms ease, transform 180ms ease'; el.style.opacity = '0'; el.style.transform = 'scale(0.93)'; selectedCards.delete(id); setTimeout(() => el.remove(), 180); } });
+    updateSelBadge();
+  }
+});
+document.addEventListener('keyup', e => { if (e.code === 'Space') { spaceDown = false; if (!isPanning) canvasPane.style.cursor = ''; } });
+
+canvasPane.addEventListener('mousedown', e => {
+  if (e.button === 1 || (e.button === 0 && spaceDown)) {
+    if (rbActive) return;
+    isPanning = true; panOrigin = {x: e.clientX-camX, y: e.clientY-camY};
+    canvasPane.style.cursor = 'grabbing'; e.preventDefault();
+  }
+});
+document.addEventListener('mousemove', e => { if (!isPanning) return; camX = e.clientX-panOrigin.x; camY = e.clientY-panOrigin.y; applyTransform(false); });
+document.addEventListener('mouseup', () => { if (isPanning) { isPanning = false; canvasPane.style.cursor = spaceDown ? 'grab' : ''; } });
+
+document.getElementById('zoom-in').addEventListener('click', () => { zoomAt(canvasPane.clientWidth/2, canvasPane.clientHeight/2, 1.25); applyTransform(true); });
+document.getElementById('zoom-out').addEventListener('click', () => { zoomAt(canvasPane.clientWidth/2, canvasPane.clientHeight/2, 1/1.25); applyTransform(true); });
+document.getElementById('zoom-pct').addEventListener('click', () => { camX=48; camY=48; camScale=1; applyTransform(true); });
+
+function autoPanToCard(card) {
+  requestAnimationFrame(() => {
+    const cr = card.getBoundingClientRect(), pr = canvasPane.getBoundingClientRect(), m = 80;
+    let tx = camX, ty = camY, moved = false;
+    if (cr.right > pr.right-m) { tx -= (cr.right-pr.right+m); moved = true; }
+    if (cr.bottom > pr.bottom-160-m) { ty -= (cr.bottom-pr.bottom+160+m); moved = true; }
+    if (cr.left < pr.left+m) { tx += (pr.left+m-cr.left); moved = true; }
+    if (moved) {
+      const sx=camX, sy=camY, dur=380, t0=performance.now();
+      (function step(now) {
+        const p = Math.min((now-t0)/dur,1), e2 = 1-Math.pow(1-p,3);
+        camX = sx+(tx-sx)*e2; camY = sy+(ty-sy)*e2; applyTransform(false);
+        if (p < 1) requestAnimationFrame(step);
+      })(performance.now());
+    }
+  });
+}
+
+// ═══ STREAMING ═════════════════════════════════════════════════════════════
+function streamInto(container, cursor, html, onDone) {
+  const tmp = document.createElement('div'); tmp.innerHTML = html;
+  const paras = Array.from(tmp.querySelectorAll('p'));
+  const chunks = [];
+  paras.forEach((p,i) => { if (i>0) chunks.push(null); p.innerHTML.split(/(\s+)/).forEach(w => { if (w) chunks.push(w); }); });
+  let idx = 0, curP = null;
+  function next() {
+    if (idx >= chunks.length) { cursor.remove(); if (onDone) onDone(); return; }
+    const ch = chunks[idx++];
+    if (ch === null) { curP = null; setTimeout(next, 46); return; }
+    if (!curP) { curP = document.createElement('p'); container.insertBefore(curP, cursor); }
+    const s = document.createElement('span'); s.innerHTML = ch; curP.appendChild(s);
+    setTimeout(next, 7 + Math.random()*12);
+  }
+  next();
+}
+
+// ═══ INLINE TEXT SELECTION ═════════════════════════════════════════════════
+let selTarget = null, selRangeRect = null, selMode = null;
+
+function showInlineSelTb(rect) {
+  let left = rect.left + rect.width/2 - 100, top = rect.bottom + 8;
+  left = Math.max(8, Math.min(left, window.innerWidth-220));
+  top = Math.min(top, window.innerHeight-60);
+  inlineSelTb.style.left = left+'px'; inlineSelTb.style.top = top+'px';
+  inlineSelTb.classList.add('show');
+}
+function hideInlineSelTb() { inlineSelTb.classList.remove('show'); }
+function showIPC(rect) {
+  let left = rect.left, top = rect.bottom + 52;
+  left = Math.max(8, Math.min(left, window.innerWidth-380));
+  top = Math.min(top, window.innerHeight-120);
+  inlinePromptCard.style.left = left+'px'; inlinePromptCard.style.top = top+'px';
+  inlinePromptCard.classList.add('show');
+  ipcField.value = ''; setTimeout(() => ipcField.focus(), 60);
+}
+function hideIPC() { inlinePromptCard.classList.remove('show'); ipcField.value = ''; }
+
+document.addEventListener('mouseup', e => {
+  if (e.target.closest('#inline-sel-tb, #inline-prompt-card')) return;
+  setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim() || sel.toString().trim().length < 5) {
+      if (!inlinePromptCard.classList.contains('show')) hideInlineSelTb();
+      return;
+    }
+    const anchor = sel.anchorNode;
+    const verBody = anchor?.nodeType === Node.TEXT_NODE ? anchor.parentElement?.closest('.ver-body, .iter-body') : anchor?.closest?.('.ver-body, .iter-body');
+    const askDoc = anchor?.nodeType === Node.TEXT_NODE ? anchor.parentElement?.closest('#ask-doc-content') : anchor?.closest?.('#ask-doc-content');
+    if (!verBody && !askDoc) { if (!inlinePromptCard.classList.contains('show')) hideInlineSelTb(); return; }
+    selMode = verBody ? 'iterate' : 'ask';
+    const range = sel.getRangeAt(0);
+    selRangeRect = range.getBoundingClientRect();
+    selTarget = range.commonAncestorContainer;
+    if (selTarget.nodeType === Node.TEXT_NODE) selTarget = selTarget.parentElement;
+    selTarget = selTarget.closest('p') || selTarget;
+    showInlineSelTb(selRangeRect);
+  }, 20);
+});
+
+document.addEventListener('mousedown', e => {
+  if (e.target.closest('#inline-sel-tb')) return;
+  if (!e.target.closest('#inline-prompt-card')) hideIPC();
+  if (!e.target.closest('#inline-sel-tb') && !e.target.closest('#inline-prompt-card')) hideInlineSelTb();
+});
+
+document.getElementById('ist-reply').addEventListener('click', () => {
+  const sel = window.getSelection();
+  if (sel && sel.toString().trim()) {
+    if (selMode === 'iterate') { canvasField.value = '> ' + sel.toString().trim() + '\n'; autoResize(canvasField, 140); syncCanvasSend(); canvasField.focus(); }
+  }
+  hideInlineSelTb();
+});
+
+document.getElementById('ist-iterate').addEventListener('click', () => {
+  hideInlineSelTb();
+  if (selRangeRect) showIPC(selRangeRect);
+});
+
+function submitIPC() {
+  const instruction = ipcField.value.trim();
+  if (!instruction || !selTarget) return;
+  hideIPC();
+
+  if (selMode === 'ask') {
+    enterGeneratingState();
+    selTarget.innerHTML = '<div class="inline-skel"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div></div>';
+    const newText = '<p>I\u2019ve refined this section based on your feedback, emphasizing specific skills and experiences aligned with Anthropic\u2019s mission while maintaining authentic voice.</p>';
+    setTimeout(() => {
+      selTarget.innerHTML = '';
+      const cursor = document.createElement('span'); cursor.className = 'scursor';
+      selTarget.appendChild(cursor);
+      streamInto(selTarget, cursor, newText, () => {
+        const v = versions[viewingVersion];
+        if (v) {
+          const newHtml = askDocContent.innerHTML;
+          v.revisions.push(newHtml);
+          v.currentRevision = v.revisions.length - 1;
+          updateToolbarNav();
+          updateAllDocCardActions();
+        }
+        exitGeneratingState();
+      });
+    }, 900 + Math.random()*400);
+  } else {
+    selTarget.innerHTML = '<div class="inline-skel"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div></div>';
+    const newText = '<p>I\u2019ve refined this section based on your feedback, emphasizing specific skills and experiences aligned with Anthropic\u2019s mission while maintaining authentic voice.</p>';
+    setTimeout(() => {
+      selTarget.innerHTML = '';
+      const cursor = document.createElement('span'); cursor.className = 'scursor';
+      selTarget.appendChild(cursor);
+      streamInto(selTarget, cursor, newText, () => {
+        if (iterSidebars.length > 0) {
+          const lastPanel = iterSidebars[iterSidebars.length - 1];
+          const v = versions[lastPanel.verIdx];
+          if (v) {
+            const newHtml = lastPanel.bodyEl.innerHTML;
+            v.revisions.push(newHtml);
+            v.currentRevision = v.revisions.length - 1;
+            updatePanelNav(lastPanel);
+          }
+        }
+      });
+    }, 900 + Math.random()*400);
+  }
+}
+ipcSend.addEventListener('click', submitIPC);
+ipcField.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitIPC(); } });
+
+function addVerCardNav(verCard) {
+  if (verCard.querySelector('.ver-card-nav')) return;
+  const nav = document.createElement('div');
+  nav.className = 'ver-card-nav';
+  nav.innerHTML = '<button class="ver-btn vc-prev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button><span class="ver-label vc-label">2 / 2</span><button class="ver-btn disabled vc-next"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>';
+  const verTitle = verCard.querySelector('.ver-title');
+  verTitle.parentNode.insertBefore(nav, verTitle.nextSibling);
+
+  let cardVer = 2;
+  const orig = iterCardOriginals.get(verCard.id);
+  nav.querySelector('.vc-prev').addEventListener('click', () => {
+    if (cardVer <= 1) return;
+    cardVer = 1;
+    if (orig) orig.paraEl.innerHTML = orig.origHTML;
+    nav.querySelector('.vc-label').textContent = '1 / 2';
+    nav.querySelector('.vc-prev').classList.add('disabled');
+    nav.querySelector('.vc-next').classList.remove('disabled');
+  });
+  nav.querySelector('.vc-next').addEventListener('click', () => {
+    if (cardVer >= 2) return;
+    cardVer = 2;
+    if (orig) orig.paraEl.innerHTML = '<p>I\u2019ve refined this section based on your feedback, emphasizing specific skills and experiences aligned with Anthropic\u2019s mission while maintaining authentic voice.</p>';
+    nav.querySelector('.vc-label').textContent = '2 / 2';
+    nav.querySelector('.vc-next').classList.add('disabled');
+    nav.querySelector('.vc-prev').classList.remove('disabled');
+  });
+}
+
+// ═══ ASK MODE ══════════════════════════════════════════════════════════════
+
+function addVersionTab(idx, label, active) {
+  const tab = document.createElement('button');
+  tab.className = 'version-tab' + (active ? ' active' : '');
+  tab.dataset.idx = idx;
+  tab.textContent = label;
+  tab.addEventListener('click', () => activateVersionTab(idx));
+  versionTabsEl.appendChild(tab);
+  if (active) {
+    versionTabsEl.querySelectorAll('.version-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.idx == idx);
+    });
+  }
+  tab.scrollIntoView({ behavior: 'smooth', inline: 'end' });
+}
+
+function activateVersionTab(idx) {
+  if (idx < 0 || idx >= versions.length || isStreaming) return;
+  viewingVersion = idx;
+  versionTabsEl.querySelectorAll('.version-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.idx == idx);
+  });
+  showAskVersion(idx);
+  updateAskCardNav();
+  updateAllDocCardActions();
+}
+
+function showAskVersion(idx) {
+  if (idx < 0 || idx >= versions.length) return;
+  viewingVersion = idx;
+  const v = versions[idx];
+  askDocContent.innerHTML = v.revisions[v.currentRevision];
+
+  document.getElementById('ask-card-title').textContent = v.label;
+  updateAskCardNav();
+  updateToolbarNav();
+}
+
+function updateToolbarNav() {
+  const v = versions[viewingVersion];
+  if (!v) return;
+  const revTotal = v.revisions.length;
+  const revNum = v.currentRevision + 1;
+  askVerLabel.textContent = revNum + ' / ' + revTotal;
+  adtVerInfo.textContent = 'Version ' + (viewingVersion + 1) + ' \u2022 PDF';
+  askVerPrev.classList.toggle('disabled', v.currentRevision <= 0);
+  askVerNext.classList.toggle('disabled', v.currentRevision >= revTotal - 1);
+}
+
+function updateAskCardNav() {
+  if (!askCardNav) return;
+  const total = versions.length;
+  const num = viewingVersion + 1;
+  if (total > 1) {
+    askCardNav.style.display = 'flex';
+    if (askCardVerLbl) askCardVerLbl.textContent = num + ' / ' + total;
+  } else {
+    askCardNav.style.display = 'none';
+  }
+}
+
+askVerPrev.addEventListener('click', () => {
+  const v = versions[viewingVersion];
+  if (!v || v.currentRevision <= 0) return;
+  v.currentRevision--;
+  askDocContent.innerHTML = v.revisions[v.currentRevision];
+  updateToolbarNav();
+});
+askVerNext.addEventListener('click', () => {
+  const v = versions[viewingVersion];
+  if (!v || v.currentRevision >= v.revisions.length - 1) return;
+  v.currentRevision++;
+  askDocContent.innerHTML = v.revisions[v.currentRevision];
+  updateToolbarNav();
+});
+
+function createInlineDocCard(label, verIdx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'ask-inline-doc-card';
+  wrap.innerHTML = '<div class="ask-doc-card"><div class="ask-doc-card-left"><div class="ask-doc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div><div><div class="ask-doc-title-text">' + esc(label) + '</div><div class="ask-doc-type">Document \u2022 PDF</div></div></div><button class="ask-download-btn">Download</button></div>'
+    + '<div class="doc-card-actions-row visible">'
+    + '<div class="dca-left">'
+    + '<button class="icon-btn dca-prev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>'
+    + '<span class="dca-page-label">' + (verIdx + 1) + ' / ' + versions.length + '</span>'
+    + '<button class="icon-btn dca-next"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>'
+    + '</div>'
+    + '<div class="dca-right">'
+    + '<button class="icon-btn dca-copy" title="Copy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>'
+    + '<button class="icon-btn dca-refresh" title="Refresh"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></button>'
+    + '<button class="icon-btn danger dca-trash" title="Delete"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>'
+    + '</div>'
+    + '</div>';
+
+  wireDocCardActions(wrap, verIdx);
+  return wrap;
+}
+
+function wireDocCardActions(cardEl, verIdx) {
+  const prevBtn = cardEl.querySelector('.dca-prev');
+  const nextBtn = cardEl.querySelector('.dca-next');
+  const copyBtn = cardEl.querySelector('.dca-copy');
+  const refreshBtn = cardEl.querySelector('.dca-refresh');
+  const trashBtn = cardEl.querySelector('.dca-trash');
+
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    if (viewingVersion > 0) activateVersionTab(viewingVersion - 1);
+  });
+  if (nextBtn) nextBtn.addEventListener('click', () => {
+    if (viewingVersion < versions.length - 1) activateVersionTab(viewingVersion + 1);
+  });
+  if (copyBtn) copyBtn.addEventListener('click', () => {
+    const text = askDocContent.innerText || askDocContent.textContent;
+    navigator.clipboard.writeText(text).catch(() => {});
+  });
+  if (refreshBtn) refreshBtn.addEventListener('click', () => {
+    if (!isStreaming && versions.length > 0) showAskVersion(viewingVersion);
+  });
+  if (trashBtn) trashBtn.addEventListener('click', deleteAskDoc);
+}
+
+function updateAllDocCardActions() {
+  document.querySelectorAll('.doc-card-actions-row').forEach(row => {
+    const label = row.querySelector('.dca-page-label');
+    if (label) label.textContent = (viewingVersion + 1) + ' / ' + versions.length;
+    row.classList.toggle('visible', versions.length > 1);
+  });
+}
+
+function generateAskVersion(prompt) {
+  if (isStreaming) return;
+  isStreaming = true;
+  enterGeneratingState();
+
+  const chatInner = document.getElementById('ask-chat-inner');
+  const chatScroll = document.getElementById('ask-chat-scroll');
+
+  const aiGroup = createMsgGroup();
+  const aiBub = document.createElement('div');
+  aiBub.className = 'ask-ai-bubble';
+  aiBub.textContent = 'I have thoroughly updated your cover letter to enhance its professionalism. It now conveys your qualifications and experiences in a more polished manner.';
+  aiGroup.appendChild(aiBub);
+
+  const verNum = versions.length + 1;
+  const label = 'V' + verNum + ' \u2022 Cover letter for Anthropic';
+  const html = V2_HTML;
+  const verIdx = addVersion(html, label);
+  viewingVersion = verIdx;
+
+  const docCard = createInlineDocCard(label, verIdx);
+  aiGroup.appendChild(docCard);
+  chatInner.appendChild(aiGroup);
+  chatScroll.scrollTop = chatScroll.scrollHeight;
+
+  updateAllDocCardActions();
+  addVersionTab(verIdx, label, true);
+
+  askDocContent.innerHTML = '';
+  askSkeleton.style.display = 'block';
+  askDocContent.appendChild(askSkeleton);
+
+  if (iterCanvasReady && iterSidebars.length > 0) {
+    const lastPanel = iterSidebars[iterSidebars.length - 1];
+    lastPanel.verIdx = verIdx;
+    const v = versions[verIdx];
+    lastPanel.titleEl.textContent = v.label.toUpperCase();
+    lastPanel.bodyEl.innerHTML = v.revisions[v.currentRevision];
+    lastPanel.bodyEl.contentEditable = 'true';
+    updatePanelNav(lastPanel);
+  }
+
+  setTimeout(() => {
+    askSkeleton.style.display = 'none';
+    askSkeleton.remove();
+    askDocContent.innerHTML = '';
+    const cursor = document.createElement('span'); cursor.className = 'scursor';
+    askDocContent.appendChild(cursor);
+
+    streamInto(askDocContent, cursor, html, () => {
+      isStreaming = false;
+      exitGeneratingState();
+      updateAskCardNav();
+      updateAllDocCardActions();
+    });
+  }, 1200 + Math.random() * 400);
+}
+
+askReplyField.addEventListener('input', () => { autoResize(askReplyField, 140); syncSend(askReplyField, askSendBtn, askVoiceBtn); });
+askReplyField.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitAskReply(); } });
+askSendBtn.addEventListener('click', submitAskReply);
+askStopBtn.addEventListener('click', () => {
+  isStreaming = false;
+  exitGeneratingState();
+});
+
+function submitAskReply() {
+  const text = askReplyField.value.trim();
+  if (!text || isStreaming) return;
+
+  const chatInner = document.getElementById('ask-chat-inner');
+  const chatScroll = document.getElementById('ask-chat-scroll');
+  const userGroup = createMsgGroup();
+  const userBub = document.createElement('div');
+  userBub.className = 'ask-user-reply-bubble';
+  userBub.textContent = text;
+  userGroup.appendChild(userBub);
+  chatInner.appendChild(userGroup);
+  chatScroll.scrollTop = chatScroll.scrollHeight;
+
+  askReplyField.value = ''; autoResize(askReplyField, 140);
+  syncSend(askReplyField, askSendBtn, null);
+  generateAskVersion(text);
+}
+
+// ── Ask delete doc flow ─────────────────────────────────────────────────
+const initialResponseGroup = document.getElementById('ask-initial-response');
+const initialDeleteBtn = initialResponseGroup.querySelector('.msg-delete-btn');
+if (initialDeleteBtn) initialDeleteBtn.addEventListener('click', deleteAskDoc);
+
+function deleteAskDoc() {
+  askDocDeleted = true;
+  askAiLabel.style.display = 'none';
+  askCardWrap.style.display = 'none';
+  initialResponseGroup.querySelector('.chat-msg-hover-delete').style.display = 'none';
+  askDeletedMsg.style.display = 'flex';
+  askRight.classList.add('hidden');
+  askLeft.classList.add('centered');
+}
+
+document.getElementById('ask-undo-delete').addEventListener('click', undoDeleteAskDoc);
+
+function undoDeleteAskDoc() {
+  askDocDeleted = false;
+  askAiLabel.style.display = '';
+  askCardWrap.style.display = '';
+  initialResponseGroup.querySelector('.chat-msg-hover-delete').style.display = '';
+  askDeletedMsg.style.display = 'none';
+  askRight.classList.remove('hidden');
+  askLeft.classList.remove('centered');
+}
+
+wireDocCardActions(askCardWrap, 0);
+
+const askUserWrap = document.getElementById('ask-user-wrap');
+const askUserDeleteBtn = document.getElementById('ask-user-delete');
+if (askUserDeleteBtn) {
+  askUserDeleteBtn.addEventListener('click', () => {
+    const deleted = document.createElement('div');
+    deleted.className = 'ask-deleted-msg';
+    deleted.style.display = 'flex';
+    deleted.innerHTML = '<span>Message was deleted</span><button class="undo-btn" title="Undo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>';
+    askUserWrap.style.display = 'none';
+    askUserWrap.parentNode.insertBefore(deleted, askUserWrap.nextSibling);
+    deleted.querySelector('.undo-btn').addEventListener('click', () => {
+      askUserWrap.style.display = '';
+      deleted.remove();
+    });
+  });
+}
+</script>
+</body>
+</html>

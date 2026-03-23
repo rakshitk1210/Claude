@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude — v6 Board Canvas</title>
+  <style>
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-semibold.woff2') format('woff2');
+      font-weight: 600; font-style: normal;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-sidebar: #1c1917;
+      --bg-main:    #f5f4ef;
+      --bg-input:   #eceae3;
+      --bg-human:   #e8e6df;
+      --text-100:   #1c1917;
+      --text-300:   #6b6860;
+      --text-400:   #9b9892;
+      --text-500:   #b5b2ab;
+      --accent:     #c15f3c;
+      --border:     #e4e2dc;
+      --sel-bg:     #b2dafd;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg-main); color: var(--text-100);
+    }
+
+    /* ─── App shell ──────────────────────────────────────────── */
+    .app { display: flex; height: 100vh; }
+
+    /* ─── Sidebar ────────────────────────────────────────────── */
+    .sidebar {
+      width: 48px; background: var(--bg-sidebar);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 10px; flex-shrink: 0; z-index: 20;
+    }
+    .sidebar-top  { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1; }
+    .sidebar-bottom { display: flex; flex-direction: column; align-items: center; }
+    .sb-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #9b9892; transition: background 120ms, color 120ms;
+    }
+    .sb-btn:hover  { background: rgba(255,255,255,.08); color: #f5f4ef; }
+    .sb-btn.active { color: rgba(255,255,255,.85); }
+    .sb-divider { width: 22px; height: 1px; background: rgba(255,255,255,.07); margin: 5px 0; }
+    .user-avatar {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; font-weight: 600; color: white; cursor: pointer; letter-spacing: .03em;
+    }
+
+    /* ─── Main wrap ──────────────────────────────────────────── */
+    .main-wrap { flex: 1; position: relative; overflow: hidden; }
+
+    /* ─── Home screen ────────────────────────────────────────── */
+    #home-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: var(--bg-main);
+      transition: opacity 280ms ease, transform 280ms ease;
+    }
+    #home-screen.hiding {
+      opacity: 0; transform: translateY(-10px); pointer-events: none;
+    }
+
+    .greeting-row {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 22px;
+    }
+    .greeting-logo { width: 44px; height: 44px; color: var(--accent); flex-shrink: 0; }
+    .greeting-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 36px; font-weight: 300; color: var(--text-100);
+    }
+
+    /* Home input */
+    .home-input-wrap {
+      width: 600px; max-width: calc(100vw - 96px);
+      background: var(--bg-input); border-radius: 16px;
+      padding: 12px 12px 10px 16px;
+      display: flex; flex-direction: column; gap: 8px;
+      transition: box-shadow 150ms;
+    }
+    .home-input-wrap:focus-within { box-shadow: 0 0 0 1.5px rgba(0,0,0,.13); }
+
+    .home-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 15px; font-family: inherit; color: var(--text-100);
+      resize: none; outline: none; line-height: 1.5;
+      min-height: 24px; max-height: 140px;
+    }
+    .home-field::placeholder { color: var(--text-400); }
+
+    .home-tb { display: flex; align-items: center; justify-content: space-between; }
+
+    .home-disclaimer {
+      text-align: center; font-size: 11px; color: var(--text-500); margin-top: 8px;
+    }
+
+    /* Shared toolbar pieces */
+    .tb-left  { display: flex; align-items: center; gap: 4px; }
+    .tb-right { display: flex; align-items: center; gap: 4px; }
+
+    .mode-pills { display: flex; align-items: center; gap: 2px; }
+    .mode-pill {
+      height: 28px; padding: 0 12px; border-radius: 100px; border: none;
+      font-size: 12.5px; font-weight: 500; cursor: pointer;
+      background: transparent; color: var(--text-400); font-family: inherit;
+      transition: background 150ms, color 150ms;
+    }
+    .mode-pill.active { background: var(--accent); color: white; }
+    .mode-pill:not(.active):hover { background: rgba(0,0,0,.06); color: var(--text-100); }
+
+    .tool-btn {
+      height: 28px; padding: 0 8px; border: none; border-radius: 7px;
+      background: transparent; cursor: pointer; display: flex; align-items: center; gap: 4px;
+      color: var(--text-400); font-size: 12.5px; font-weight: 500; font-family: inherit;
+      transition: background 100ms, color 100ms;
+    }
+    .tool-btn:hover { background: rgba(0,0,0,.06); color: var(--text-100); }
+
+    .model-btn {
+      height: 28px; padding: 0 8px; border: none; border-radius: 7px;
+      background: transparent; cursor: pointer; display: flex; align-items: center; gap: 3px;
+      color: var(--text-400); font-size: 12.5px; font-weight: 500; font-family: inherit;
+      transition: background 100ms, color 100ms;
+    }
+    .model-btn:hover { background: rgba(0,0,0,.06); color: var(--text-100); }
+
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #2db57e; }
+
+    .send-btn {
+      width: 30px; height: 30px; border-radius: 50%; background: var(--text-100);
+      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 100ms, transform 80ms;
+    }
+    .send-btn:hover:not(:disabled) { background: #333; }
+    .send-btn:active:not(:disabled) { transform: scale(.92); }
+    .send-btn:disabled { background: #c8c5be; cursor: not-allowed; }
+
+    /* ─── Board screen ───────────────────────────────────────── */
+    #board-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none;
+      transition: opacity 300ms ease;
+    }
+    #board-screen.visible { opacity: 1; pointer-events: auto; }
+
+    /* Topbar */
+    #board-topbar {
+      height: 48px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid rgba(0,0,0,.08);
+      background: var(--bg-main);
+      z-index: 10; position: relative;
+    }
+
+    .board-title-btn {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 14px; font-weight: 500; color: var(--text-100);
+      border: none; background: transparent; cursor: pointer; font-family: inherit;
+      border-radius: 6px; padding: 4px 8px; margin-left: -8px;
+      transition: background 100ms;
+    }
+    .board-title-btn:hover { background: rgba(0,0,0,.05); }
+
+    .exit-board-btn {
+      display: flex; align-items: center; gap: 7px;
+      height: 32px; padding: 0 14px; border-radius: 100px;
+      border: 1px solid var(--border); background: white;
+      font-size: 12.5px; font-weight: 500; color: var(--text-300); cursor: pointer;
+      font-family: inherit; transition: background 100ms, color 100ms;
+    }
+    .exit-board-btn:hover { background: var(--bg-main); color: var(--text-100); }
+
+    /* Board canvas */
+    #board-canvas {
+      flex: 1; overflow-x: auto; overflow-y: auto;
+      background: var(--bg-main);
+      background-image: radial-gradient(circle, #cac7c0 1px, transparent 1px);
+      background-size: 24px 24px;
+      padding: 28px 48px 120px;
+    }
+    #board-canvas::-webkit-scrollbar { width: 5px; height: 6px; }
+    #board-canvas::-webkit-scrollbar-thumb { background: rgba(0,0,0,.1); border-radius: 3px; }
+
+    /* Versions container */
+    #versions-container {
+      display: flex; gap: 20px; align-items: flex-start;
+      min-width: max-content;
+    }
+
+    /* Version column */
+    .ver-col {
+      display: flex; flex-direction: column;
+      width: 440px; flex-shrink: 0;
+    }
+
+    /* Column header */
+    .ver-header {
+      flex-shrink: 0; margin-bottom: 14px;
+      min-height: 68px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+    }
+
+    /* Human bubble in col 1 */
+    .human-bubble {
+      background: var(--bg-human); border-radius: 14px 14px 14px 4px;
+      padding: 10px 15px; font-size: 14px; line-height: 1.55;
+      max-width: 380px; color: var(--text-100); word-break: break-word;
+      box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    }
+
+    /* Context block in col 2+ */
+    .ctx-block {
+      background: white; border-radius: 10px;
+      padding: 10px 13px; display: flex; flex-direction: column; gap: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      border: 1px solid var(--border);
+    }
+    .ctx-question {
+      font-size: 13px; color: var(--text-100); line-height: 1.45; font-weight: 400;
+    }
+    .ctx-quote {
+      display: flex; overflow: hidden; border-radius: 0 5px 5px 0;
+    }
+    .ctx-quote-bar { width: 3px; background: #74b9f5; flex-shrink: 0; border-radius: 2px; }
+    .ctx-quote-text {
+      padding: 5px 10px;
+      font-size: 12px; font-style: italic; line-height: 1.5;
+      color: var(--text-400); background: rgba(178,218,253,.15);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Version card */
+    .ver-card {
+      background: white; border-radius: 14px;
+      padding: 24px 26px 28px;
+      overflow: visible;
+      box-shadow: 0 2px 10px rgba(0,0,0,.07), 0 0 0 1px rgba(0,0,0,.04);
+      position: relative;
+      min-height: 480px;
+    }
+
+    .ver-card-label {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 28px; font-weight: 300; color: var(--text-100);
+      margin-bottom: 18px; line-height: 1.2;
+    }
+    .ver-doc-title {
+      font-size: 13.5px; font-weight: 600; color: var(--text-300);
+      margin-bottom: 3px; line-height: 1.45;
+    }
+    .ver-doc-subtitle {
+      font-size: 13px; color: var(--text-400);
+      margin-bottom: 18px; line-height: 1.5;
+    }
+    .ver-divider {
+      border: none; border-top: 1px solid var(--border); margin: 0 0 20px;
+    }
+    .ver-body {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 15.5px; font-weight: 400; line-height: 1.82; color: var(--text-100);
+      outline: none;
+    }
+    .ver-body p + p { margin-top: 14px; }
+    .ver-body ::selection    { background: var(--sel-bg); }
+    .ver-body ::-moz-selection { background: var(--sel-bg); }
+
+    /* Skeleton */
+    .skeleton-wrap { display: flex; flex-direction: column; gap: 11px; }
+    .skeleton-line {
+      height: 16px; border-radius: 7px;
+      background: linear-gradient(90deg, #f0eeea 25%, #e8e6e0 50%, #f0eeea 75%);
+      background-size: 200% 100%; animation: shimmer 1.4s ease infinite;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* Streaming cursor */
+    .stream-cursor {
+      display: inline-block; width: 2px; height: 14px; background: var(--text-300);
+      border-radius: 1px; vertical-align: text-bottom; margin-left: 1px;
+      animation: blink .85s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ─── Fixed board bottom input ───────────────────────────── */
+    #board-input {
+      position: fixed; bottom: 20px;
+      left: 50%; transform: translateX(calc(-50% + 24px));
+      width: 540px;
+      background: var(--bg-input); border-radius: 14px;
+      padding: 10px 10px 8px 14px;
+      display: none; flex-direction: column; gap: 6px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.06);
+      z-index: 50;
+      transition: box-shadow 150ms;
+    }
+    #board-input.visible { display: flex; }
+    #board-input:focus-within { box-shadow: 0 2px 16px rgba(0,0,0,.14), 0 0 0 1.5px rgba(0,0,0,.14); }
+
+    #board-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 14.5px; font-family: inherit; color: var(--text-100);
+      resize: none; outline: none; line-height: 1.5;
+      min-height: 22px; max-height: 120px;
+    }
+    #board-field::placeholder { color: var(--text-400); }
+
+    .board-tb { display: flex; align-items: center; justify-content: space-between; }
+
+    /* ─── Selection toolbar ──────────────────────────────────── */
+    #selection-toolbar {
+      position: fixed; z-index: 200;
+      background: white; border: 1px solid #e4e2dc;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.07);
+      display: none; align-items: center; gap: 4px; padding: 5px 7px;
+      pointer-events: all; white-space: nowrap; user-select: none;
+    }
+    #selection-toolbar.visible { display: flex; }
+
+    .ft-divider { width: 1px; height: 18px; background: #e4e2dc; margin: 0 2px; }
+    .ft-icon-btn {
+      width: 28px; height: 28px; border-radius: 7px; border: none; background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-300); transition: background 100ms, color 100ms;
+    }
+    .ft-icon-btn:hover { background: rgba(0,0,0,.05); color: var(--text-100); }
+    .ft-btn {
+      height: 28px; padding: 0 11px; border-radius: 7px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 4px; font-family: inherit;
+      transition: background 100ms, color 100ms; border: none;
+    }
+    .ft-btn-ghost { border: 1px solid #e0ddd7; background: white; color: var(--text-100); }
+    .ft-btn-ghost:hover { background: var(--bg-main); }
+    .ft-btn-primary { background: var(--accent); color: white; }
+    .ft-btn-primary:hover { background: #b05535; }
+
+    /* ─── Inline ask card ────────────────────────────────────── */
+    #inline-card {
+      position: fixed; z-index: 210;
+      background: white; border: 1px solid #e4e2dc;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.09), 0 12px 32px rgba(0,0,0,.08);
+      display: none; flex-direction: column; gap: 10px;
+      padding: 12px 12px 10px 14px;
+      width: 380px; pointer-events: all;
+    }
+    #inline-card.visible { display: flex; }
+
+    .ic-ctx {
+      font-size: 11.5px; color: var(--text-400); font-style: italic;
+      padding: 5px 10px;
+      background: rgba(178,218,253,.2);
+      border-left: 2px solid #74b9f5; border-radius: 0 4px 4px 0;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .ic-textarea {
+      width: 100%; border: none; background: transparent;
+      font-size: 14px; font-family: inherit; color: var(--text-100);
+      resize: none; outline: none; line-height: 1.5;
+      min-height: 20px; max-height: 100px;
+    }
+    .ic-textarea::placeholder { color: var(--text-400); }
+    .ic-footer { display: flex; align-items: center; justify-content: space-between; }
+    .ic-close {
+      width: 28px; height: 28px; border-radius: 7px; border: none; background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: background 100ms, color 100ms;
+    }
+    .ic-close:hover { background: rgba(0,0,0,.05); color: var(--text-100); }
+    .ic-send {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 80ms, transform 80ms;
+    }
+    .ic-send:hover { background: #b05535; }
+    .ic-send:active { transform: scale(.92); }
+    .ic-send:disabled { background: #c8c5be; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <button class="sb-btn active">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg>
+      </button>
+      <button class="sb-btn" onclick="exitBoard()">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+      </button>
+      <button class="sb-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M8.5 2C12.0899 2 15 4.91015 15 8.5C15 10.1149 14.4094 11.5908 13.4346 12.7275L17.8535 17.1465C18.0244 17.6827 17.8535 17.8535 17.1465 17.8535L12.7275 13.4346C11.5908 14.4094 10.1149 15 8.5 15C4.91015 15 2 12.0899 2 8.5C2 4.91015 4.91015 2 8.5 2ZM8.5 3C5.46243 3 3 5.46243 3 8.5C3 11.5376 5.46243 14 8.5 14C11.5376 14 14 11.5376 14 8.5C14 5.46243 11.5376 3 8.5 3Z"/></svg>
+      </button>
+      <button class="sb-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M15.8198 7C16.6885 7 17.3624 7.73158 17.3178 8.57617L17.2993 8.74707L16.1332 15.7471C16.0126 16.4699 15.3865 17 14.6538 17H5.34711C4.6142 17 3.98833 16.47 3.86762 15.7471L2.7016 8.74707C2.54922 7.83277 3.25418 7 4.18109 7H15.8198ZM16.0004 5.5C16.0004 5.224 15.7764 5 15.5004 5H4.50043C4.22428 5 4.00043 5.22386 4.00043 5.5C4.00043 5.77614 4.22428 6 4.50043 6H15.5004C15.7764 6 16.0004 5.776 16.0004 5.5ZM14.5004 3.5C14.5004 3.224 14.2764 3 14.0004 3H6.00043C5.72428 3 5.50043 3.22386 5.50043 3.5C5.50043 3.77614 5.72428 4 6.00043 4H14.0004C14.2764 4 14.5004 3.776 14.5004 3.5Z"/></svg>
+      </button>
+      <div class="sb-divider"></div>
+      <button class="sb-btn">
+        <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M239.2,97.29a15.89,15.89,0,0,0-13-10.78l-59.06-4.92L144.27,26.8a15.91,15.91,0,0,0-29.3,0L92.86,81.59,33.8,86.51A15.89,15.89,0,0,0,20.8,97.29,16.46,16.46,0,0,0,25.95,115l45,38.83L57.17,211.8a16.38,16.38,0,0,0,6.86,17.67,15.84,15.84,0,0,0,18.62-.8L128,193.38l45.35,35.29a15.86,15.86,0,0,0,18.62.8,16.38,16.38,0,0,0,6.86-17.67l-13.78-58-45-38.83A16.46,16.46,0,0,0,239.2,97.29Z"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="user-avatar">RK</div>
+    </div>
+  </aside>
+
+  <!-- ── Main wrap ── -->
+  <div class="main-wrap">
+
+    <!-- ── Home screen ── -->
+    <div id="home-screen">
+      <div class="greeting-row">
+        <svg class="greeting-logo" viewBox="0 0 100 100" fill="currentColor">
+          <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+        </svg>
+        <span class="greeting-text">Good afternoon, Rakshit</span>
+      </div>
+
+      <div class="home-input-wrap" id="home-input-wrap">
+        <textarea class="home-field" id="home-field" placeholder="How can I help you today?" rows="1"></textarea>
+        <div class="home-tb">
+          <div class="tb-left">
+            <div class="mode-pills">
+              <button class="mode-pill active" id="home-pill-ask" onclick="setHomeMode('ask')">Ask</button>
+              <button class="mode-pill" id="home-pill-iterate" onclick="setHomeMode('iterate')">Iterate</button>
+            </div>
+            <button class="tool-btn">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+            </button>
+          </div>
+          <div class="tb-right">
+            <button class="model-btn">
+              <span id="home-model-name">Opus 4.6</span>
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z"/></svg>
+            </button>
+            <div class="status-dot"></div>
+            <button class="send-btn" id="home-send-btn" disabled>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V12.1855L13.626 8.66797C13.8094 8.46166 14.1256 8.44275 14.332 8.62598C14.5383 8.80936 14.5573 9.12563 14.374 9.33203L10.374 13.832C10.21 13.9654 10.107 14 10 14C9.85718 14 9.72086 13.9388 9.62598 13.832L5.62598 9.33203C5.45079 9.04872 5.48735 8.78653 5.66797 8.62598C5.84854 8.46567 6.1127 8.46039 6.29883 8.59961L6.37402 8.66797L9.5 12.1855V3.5C9.5 3.22386 9.72386 3 10 3Z"/>
+                <path d="M3.5 13C3.22386 13 3 13.2239 3 13.5V15.5C3 16.3284 3.67157 17 4.5 17H15.5C16.3284 17 17 16.3284 17 15.5V13.5C17 13.2239 16.7761 13 16.5 13C16.2239 13 16 13.2239 16 13.5V15.5C16 15.7761 15.7761 16 15.5 16H4.5C4.22386 16 4 15.7761 4 15.5V13.5C4 13.2239 3.77614 13 3.5 13Z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <p class="home-disclaimer">Claude is AI and can make mistakes. Please double-check responses.</p>
+    </div><!-- /home-screen -->
+
+    <!-- ── Board screen ── -->
+    <div id="board-screen">
+
+      <!-- Topbar -->
+      <div id="board-topbar">
+        <button class="board-title-btn">
+          <span id="board-title-text">New conversation</span>
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z" fill="var(--text-400)"/>
+          </svg>
+        </button>
+        <button class="exit-board-btn" onclick="exitBoard()">
+          <svg width="11" height="11" viewBox="0 0 20 20" fill="none">
+            <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Exit iterate mode
+        </button>
+      </div>
+
+      <!-- Canvas -->
+      <div id="board-canvas">
+        <div id="versions-container"></div>
+      </div>
+
+    </div><!-- /board-screen -->
+
+  </div><!-- /main-wrap -->
+</div><!-- /app -->
+
+<!-- ── Board bottom input (fixed, shown only in board mode) ── -->
+<div id="board-input">
+  <textarea id="board-field" placeholder="Reply…" rows="1"></textarea>
+  <div class="board-tb">
+    <div class="tb-left">
+      <div class="mode-pills">
+        <button class="mode-pill" id="board-pill-ask" onclick="setBoardMode('ask')">Ask</button>
+        <button class="mode-pill active" id="board-pill-iterate" onclick="setBoardMode('iterate')">Iterate</button>
+      </div>
+      <button class="tool-btn">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+      </button>
+    </div>
+    <div class="tb-right">
+      <button class="model-btn">
+        <span id="board-model-name">Haiku 4.5</span>
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z"/></svg>
+      </button>
+      <div class="status-dot"></div>
+      <button class="send-btn" id="board-send-btn" disabled>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V12.1855L13.626 8.66797C13.8094 8.46166 14.1256 8.44275 14.332 8.62598C14.5383 8.80936 14.5573 9.12563 14.374 9.33203L10.374 13.832C10.21 13.9654 10.107 14 10 14C9.85718 14 9.72086 13.9388 9.62598 13.832L5.62598 9.33203C5.45079 9.04872 5.48735 8.78653 5.66797 8.62598C5.84854 8.46567 6.1127 8.46039 6.29883 8.59961L6.37402 8.66797L9.5 12.1855V3.5C9.5 3.22386 9.72386 3 10 3Z"/>
+          <path d="M3.5 13C3.22386 13 3 13.2239 3 13.5V15.5C3 16.3284 3.67157 17 4.5 17H15.5C16.3284 17 17 16.3284 17 15.5V13.5C17 13.2239 16.7761 13 16.5 13C16.2239 13 16 13.2239 16 13.5V15.5C16 15.7761 15.7761 16 15.5 16H4.5C4.22386 16 4 15.7761 4 15.5V13.5C4 13.2239 3.77614 13 3.5 13Z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Selection toolbar ── -->
+<div id="selection-toolbar">
+  <button class="ft-icon-btn" id="st-like" title="Looks good">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.56055 2C11.1381 2 12.3211 3.44332 12.0117 4.99023L11.6094 7H13.8438C15.5431 7 16.836 8.52594 16.5566 10.2021L15.876 14.2842C15.6148 15.8513 14.2586 17 12.6699 17H4.5C3.67157 17 3 16.3284 3 15.5V9.23828C3 8.57996 3.4294 7.99838 4.05859 7.80469L5.19824 7.4541C6.02983 7.15302 6.59327 6.63008 6.89746 5.9541L8.41113 2.58984C8.66235 2.17643 8.97898 2 9.32324 2H9.56055Z"/></svg>
+  </button>
+  <button class="ft-icon-btn" id="st-dislike" title="Needs work">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.4395 18C8.86191 18 7.67891 16.5567 7.98828 15.0098L8.39063 13H6.15625C4.45694 13 3.16403 11.4741 3.44336 9.79785L4.12402 5.71582C4.38522 4.14868 5.74136 3 7.33008 3H15.5C16.3284 3 17 3.67157 17 4.5V10.7617C17 11.42 16.5706 12.0016 15.9414 12.1953L14.8018 12.5459C13.9702 12.847 13.4067 13.3699 13.1025 14.0459L11.5889 17.4102C11.3376 17.8236 11.021 18 10.6768 18H10.4395Z"/></svg>
+  </button>
+  <div class="ft-divider"></div>
+  <button class="ft-btn ft-btn-ghost" id="st-reply">Reply</button>
+  <button class="ft-btn ft-btn-primary" id="st-ask">Ask</button>
+</div>
+
+<!-- ── Inline ask card ── -->
+<div id="inline-card">
+  <div class="ic-ctx" id="ic-ctx-text"></div>
+  <textarea class="ic-textarea" id="ic-textarea" placeholder="Ask about this selection…" rows="1"></textarea>
+  <div class="ic-footer">
+    <button class="ic-close" onclick="dismissInlineCard()">
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+    <button class="ic-send" id="ic-send" disabled>
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V12.1855L13.626 8.66797C13.8094 8.46166 14.1256 8.44275 14.332 8.62598C14.5383 8.80936 14.5573 9.12563 14.374 9.33203L10.374 13.832C10.21 13.9654 10.107 14 10 14C9.85718 14 9.72086 13.9388 9.62598 13.832L5.62598 9.33203C5.45079 9.04872 5.48735 8.78653 5.66797 8.62598C5.84854 8.46567 6.1127 8.46039 6.29883 8.59961L6.37402 8.66797L9.5 12.1855V3.5C9.5 3.22386 9.72386 3 10 3Z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  // ── Content pools ──────────────────────────────────────────────────────────
+  const VERSION_VARIANTS = [
+    {
+      title: 'Reading Quiz: Interface Ethics, Deceptive Patterns, Dark Patterns, and Value-Sensitive Design',
+      subtitle: 'First draft — cover letter',
+      body: `<p>Dear Hiring Manager,</p><p>I am writing to express my interest in this role at Google. With my background in product design and human-computer interaction, I believe I would be a valuable addition to your team.</p><p>Throughout my career, I have focused on creating interfaces that respect users — systems that are transparent about their capabilities, honest about their limitations, and designed to support rather than manipulate user decision-making. This work has given me a deep appreciation for the ethical dimensions of design at scale.</p><p>At my current position, I led a redesign of our onboarding flow that eliminated several patterns we identified as coercive, resulting in higher long-term retention and significantly improved user satisfaction scores. I believe good design and ethical design are not in tension — they reinforce each other.</p><p>I am particularly drawn to Google's commitment to responsible AI development and would welcome the opportunity to contribute to products that touch billions of lives.</p><p>Thank you for your consideration. I would be glad to discuss how my experience aligns with what you are looking for.</p><p>Sincerely,<br>Rakshit</p>`,
+    },
+    {
+      title: 'Reading Quiz: Interface Ethics, Deceptive Patterns, Dark Patterns, and Value-Sensitive Design',
+      subtitle: 'Revised draft — second pass',
+      body: `<p>Dear Hiring Manager,</p><p>I'm applying for this role because the problems Google works on — building systems that are both powerful and trustworthy — are the ones I've spent my career thinking about.</p><p>The most interesting design challenges I've encountered aren't about aesthetics or usability in the narrow sense. They're about what happens when you give users a system that's much more capable than they realize, or much more limited than it appears. Getting that communication right — being honest without being paralyzing — turns out to be quite hard, and quite important.</p><p>My recent work has been in AI-adjacent products where these questions come up constantly. How do you signal uncertainty without undermining confidence? How do you make it easy to stay in control without making every interaction feel like a liability waiver? I don't think there are clean answers, but I've developed some intuitions, and I'd like to keep developing them at a place that takes them seriously.</p><p>I've attached a portfolio of relevant work. Happy to discuss further.</p><p>Rakshit</p>`,
+    },
+    {
+      title: 'Reading Quiz: Interface Ethics, Deceptive Patterns, Dark Patterns, and Value-Sensitive Design',
+      subtitle: 'Sharper tone — third pass',
+      body: `<p>The job description asks for someone who can "navigate ambiguity." I'd put it differently: I look for the places where ambiguity is hiding a real design decision that someone avoided making, and I try to make it.</p><p>My background is in interface ethics — specifically, how design choices shape user behavior in ways that users often don't notice and designers often don't intend. I've spent a lot of time on questions like: what does it mean for a system to be honest with users? When does reducing friction become manipulation? How do you design for informed consent at scale?</p><p>These aren't abstract concerns for me. I've worked on products with tens of millions of users where the wrong answer had real consequences. I've been in rooms where the business case for a dark pattern was compelling and argued against it anyway. Sometimes I won.</p><p>I'd like to do that work at Google, where the stakes are higher and the resources to do it well are actually available.</p>`,
+    },
+    {
+      title: 'Reading Quiz: Interface Ethics, Deceptive Patterns, Dark Patterns, and Value-Sensitive Design',
+      subtitle: 'Alternative direction — fourth pass',
+      body: `<p>I want to work on the problems that Google is working on, and I want to work on them well.</p><p>That's a compressed version of a longer argument, which goes like this: the most consequential design decisions in the next decade will be about how AI systems present themselves to users — how they communicate confidence, how they handle failure, how they balance being helpful with being honest. Getting this wrong at scale would be bad. Getting it right is possible, but it requires both technical understanding and design judgment, and people who have both are rare.</p><p>I have spent the last several years developing exactly this combination. I understand the technical constraints well enough to know when a design requirement is actually achievable and when it's wishful thinking. I understand design well enough to know that "just show a confidence score" is almost never the right answer.</p><p>I would like to come in and show you what this looks like in practice. I'm available to start immediately.</p>`,
+    },
+  ];
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let isStreaming  = false;
+  let boardActive  = false;
+  let boardMode    = 'iterate';
+  let homeMode     = 'ask';
+  let versions     = [];
+  let variantIdx   = 0;
+  let selectedText = '';
+  let activeCardEl = null;
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const homeScreen        = document.getElementById('home-screen');
+  const boardScreen       = document.getElementById('board-screen');
+  const homeField         = document.getElementById('home-field');
+  const homeSendBtn       = document.getElementById('home-send-btn');
+  const boardField        = document.getElementById('board-field');
+  const boardSendBtn      = document.getElementById('board-send-btn');
+  const boardInput        = document.getElementById('board-input');
+  const versionsContainer = document.getElementById('versions-container');
+  const boardTitleText    = document.getElementById('board-title-text');
+  const boardCanvas       = document.getElementById('board-canvas');
+  const selToolbar        = document.getElementById('selection-toolbar');
+  const inlineCard        = document.getElementById('inline-card');
+  const icCtxText         = document.getElementById('ic-ctx-text');
+  const icTextarea        = document.getElementById('ic-textarea');
+  const icSend            = document.getElementById('ic-send');
+
+  // ── Home field ─────────────────────────────────────────────────────────────
+  homeField.addEventListener('input', () => {
+    homeField.style.height = 'auto';
+    homeField.style.height = Math.min(homeField.scrollHeight, 140) + 'px';
+    homeSendBtn.disabled = !homeField.value.trim() || isStreaming;
+  });
+  homeField.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!homeSendBtn.disabled) submitHome(); }
+  });
+  homeSendBtn.addEventListener('click', submitHome);
+
+  // ── Board field ────────────────────────────────────────────────────────────
+  boardField.addEventListener('input', () => {
+    boardField.style.height = 'auto';
+    boardField.style.height = Math.min(boardField.scrollHeight, 120) + 'px';
+    boardSendBtn.disabled = !boardField.value.trim() || isStreaming;
+  });
+  boardField.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!boardSendBtn.disabled) submitBoard(); }
+  });
+  boardSendBtn.addEventListener('click', submitBoard);
+
+  // ── Home mode pills ────────────────────────────────────────────────────────
+  function setHomeMode(mode) {
+    homeMode = mode;
+    document.getElementById('home-pill-ask').classList.toggle('active', mode === 'ask');
+    document.getElementById('home-pill-iterate').classList.toggle('active', mode === 'iterate');
+    document.getElementById('home-model-name').textContent = mode === 'iterate' ? 'Haiku 4.5' : 'Opus 4.6';
+  }
+
+  // ── Board mode pills ───────────────────────────────────────────────────────
+  function setBoardMode(mode) {
+    boardMode = mode;
+    document.getElementById('board-pill-ask').classList.toggle('active', mode === 'ask');
+    document.getElementById('board-pill-iterate').classList.toggle('active', mode === 'iterate');
+  }
+
+  // ── Submit from home ───────────────────────────────────────────────────────
+  function submitHome() {
+    const text = homeField.value.trim();
+    if (!text || isStreaming) return;
+
+    boardTitleText.textContent = text.length > 44 ? text.slice(0, 44) + '\u2026' : text;
+    homeField.value = '';
+    homeField.style.height = 'auto';
+    homeSendBtn.disabled = true;
+
+    homeScreen.classList.add('hiding');
+    setTimeout(() => {
+      boardScreen.classList.add('visible');
+      boardInput.classList.add('visible');
+    }, 200);
+
+    boardActive  = true;
+    isStreaming  = true;
+
+    appendVersionCol(text, null, null, () => {
+      isStreaming = false;
+      boardSendBtn.disabled = !boardField.value.trim();
+    });
+  }
+
+  // ── Submit from board input ────────────────────────────────────────────────
+  function submitBoard() {
+    const text = boardField.value.trim();
+    if (!text || isStreaming) return;
+
+    boardField.value = '';
+    boardField.style.height = 'auto';
+    boardSendBtn.disabled = true;
+    isStreaming = true;
+    dismissInlineCard();
+    dismissSelToolbar();
+
+    appendVersionCol(null, text, null, () => {
+      isStreaming = false;
+      boardSendBtn.disabled = !boardField.value.trim();
+    });
+  }
+
+  // ── Exit board ─────────────────────────────────────────────────────────────
+  function exitBoard() {
+    boardScreen.classList.remove('visible');
+    boardInput.classList.remove('visible');
+    homeScreen.classList.remove('hiding');
+    boardActive = false;
+    isStreaming = false;
+    versions    = [];
+    variantIdx  = 0;
+    versionsContainer.innerHTML = '';
+    dismissInlineCard();
+    dismissSelToolbar();
+    homeField.value = '';
+    homeField.style.height = 'auto';
+    homeSendBtn.disabled = true;
+  }
+
+  // ── Append a version column ────────────────────────────────────────────────
+  function appendVersionCol(humanPrompt, question, quotedText, onDone) {
+    const verNum = versions.length + 1;
+    const id = 'ver-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    versions.push({ id, num: verNum });
+
+    const col = document.createElement('div');
+    col.className = 'ver-col';
+    col.dataset.id = id;
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'ver-header';
+
+    if (verNum === 1 && humanPrompt) {
+      const bubble = document.createElement('div');
+      bubble.className = 'human-bubble';
+      bubble.textContent = humanPrompt;
+      header.appendChild(bubble);
+    } else if (question || quotedText) {
+      const ctxBlock = document.createElement('div');
+      ctxBlock.className = 'ctx-block';
+      if (question) {
+        const q = document.createElement('div');
+        q.className = 'ctx-question';
+        q.textContent = question;
+        ctxBlock.appendChild(q);
+      }
+      if (quotedText) {
+        const quote = document.createElement('div');
+        quote.className = 'ctx-quote';
+        quote.innerHTML = `<div class="ctx-quote-bar"></div><div class="ctx-quote-text">${esc(quotedText)}</div>`;
+        ctxBlock.appendChild(quote);
+      }
+      header.appendChild(ctxBlock);
+    }
+
+    col.appendChild(header);
+
+    // Card with skeleton
+    const card = document.createElement('div');
+    card.className = 'ver-card';
+    card.dataset.id = id;
+    card.innerHTML = `
+      <div class="ver-card-label">Version ${verNum}</div>
+      <div class="skeleton-wrap" style="margin-bottom:18px">
+        <div class="skeleton-line" style="width:82%"></div>
+        <div class="skeleton-line" style="width:64%"></div>
+      </div>
+      <div class="skeleton-wrap">
+        <div class="skeleton-line" style="width:97%"></div>
+        <div class="skeleton-line" style="width:90%"></div>
+        <div class="skeleton-line" style="width:94%"></div>
+        <div class="skeleton-line" style="width:85%"></div>
+        <div class="skeleton-line" style="width:72%"></div>
+      </div>
+      <br>
+      <div class="skeleton-wrap">
+        <div class="skeleton-line" style="width:96%"></div>
+        <div class="skeleton-line" style="width:88%"></div>
+        <div class="skeleton-line" style="width:91%"></div>
+        <div class="skeleton-line" style="width:79%"></div>
+        <div class="skeleton-line" style="width:61%"></div>
+      </div>
+      <br>
+      <div class="skeleton-wrap">
+        <div class="skeleton-line" style="width:95%"></div>
+        <div class="skeleton-line" style="width:83%"></div>
+        <div class="skeleton-line" style="width:55%"></div>
+      </div>`;
+
+    col.appendChild(card);
+    versionsContainer.appendChild(col);
+
+    // Scroll to show new column
+    setTimeout(() => {
+      boardCanvas.scrollTo({ left: boardCanvas.scrollWidth, behavior: 'smooth' });
+    }, 60);
+
+    // Stream in content after delay
+    setTimeout(() => {
+      const variant = VERSION_VARIANTS[variantIdx++ % VERSION_VARIANTS.length];
+
+      card.innerHTML = `
+        <div class="ver-card-label">Version ${verNum}</div>
+        <p class="ver-doc-title">${esc(variant.title)}</p>
+        <p class="ver-doc-subtitle">${esc(variant.subtitle)}</p>
+        <hr class="ver-divider">
+        <div class="ver-body"></div>`;
+
+      const body = card.querySelector('.ver-body');
+
+      const cursor = document.createElement('span');
+      cursor.className = 'stream-cursor';
+      body.appendChild(cursor);
+
+      streamInto(body, cursor, variant.body, () => {
+        if (onDone) onDone(id);
+      });
+    }, 1100 + Math.random() * 600);
+  }
+
+  // ── Inline ask submission ──────────────────────────────────────────────────
+  function submitInlineAsk() {
+    const question = icTextarea.value.trim();
+    if (!question || isStreaming) return;
+
+    const quoted = selectedText;
+    icTextarea.value = '';
+    dismissInlineCard();
+    dismissSelToolbar();
+
+    isStreaming = true;
+    boardSendBtn.disabled = true;
+
+    appendVersionCol(null, question, quoted, () => {
+      isStreaming = false;
+      boardSendBtn.disabled = !boardField.value.trim();
+    });
+  }
+
+  // ── Streaming helper ───────────────────────────────────────────────────────
+  // cursor stays a direct child of container throughout so insertBefore never fails
+  function streamInto(container, cursor, html, onDone) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    const srcParas = Array.from(tmp.querySelectorAll('p'));
+    const chunks = [];
+
+    if (srcParas.length > 0) {
+      srcParas.forEach((srcP, i) => {
+        if (i > 0) chunks.push(null); // paragraph break
+        srcP.innerHTML.split(/(\s+)/).forEach(w => { if (w) chunks.push(w); });
+      });
+    } else {
+      html.split(/(\s+)/).forEach(w => { if (w) chunks.push(w); });
+    }
+
+    let idx = 0;
+    let currentP = null;
+
+    function next() {
+      if (idx >= chunks.length) {
+        cursor.remove();
+        if (onDone) onDone();
+        return;
+      }
+      const ch = chunks[idx++];
+
+      if (ch === null) {
+        // paragraph break — reset currentP, small pause
+        currentP = null;
+        setTimeout(next, 55);
+        return;
+      }
+
+      if (!currentP) {
+        currentP = document.createElement('p');
+        // cursor is always a direct child of container, so insertBefore is always valid
+        container.insertBefore(currentP, cursor);
+      }
+
+      const span = document.createElement('span');
+      span.innerHTML = ch;
+      currentP.appendChild(span);
+
+      setTimeout(next, 11 + Math.random() * 16);
+    }
+
+    next();
+  }
+
+  // ── Text selection on ver-body ─────────────────────────────────────────────
+  // Single document-level listener avoids the e.currentTarget-goes-null-in-setTimeout bug
+  let selTimeout;
+
+  document.addEventListener('mouseup', e => {
+    if (selToolbar.contains(e.target) || inlineCard.contains(e.target)) return;
+    clearTimeout(selTimeout);
+    selTimeout = setTimeout(checkAnyCardSelection, 30);
+  });
+
+  function checkAnyCardSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim().length < 2) {
+      dismissSelToolbar(); return;
+    }
+
+    // Walk up from the anchor node to find a .ver-body ancestor
+    let node = sel.anchorNode;
+    if (!node) { dismissSelToolbar(); return; }
+    const verBody = (node.nodeType === 3 ? node.parentElement : node)
+      .closest?.('.ver-body');
+    if (!verBody) { dismissSelToolbar(); return; }
+
+    selectedText = sel.toString().trim();
+    activeCardEl = verBody.closest('.ver-card');
+
+    const range = sel.getRangeAt(0);
+    const rect  = range.getBoundingClientRect();
+    const tbW   = 252;
+    let left = rect.left + (rect.width / 2) - (tbW / 2);
+    let top  = rect.bottom + 10;
+    left = Math.max(8, Math.min(left, window.innerWidth - tbW - 8));
+    if (top + 56 > window.innerHeight) top = rect.top - 52;
+
+    selToolbar.style.left = left + 'px';
+    selToolbar.style.top  = top  + 'px';
+    selToolbar.classList.add('visible');
+  }
+
+  function dismissSelToolbar() {
+    selToolbar.classList.remove('visible');
+  }
+
+  // Selection toolbar — Reply
+  document.getElementById('st-reply').addEventListener('click', () => {
+    if (selectedText) {
+      boardField.value = selectedText.length > 120
+        ? selectedText.slice(0, 120) + '\u2026'
+        : selectedText;
+      boardField.dispatchEvent(new Event('input'));
+      boardField.focus();
+    }
+    dismissSelToolbar();
+  });
+
+  // Selection toolbar — Ask
+  document.getElementById('st-ask').addEventListener('click', () => {
+    dismissSelToolbar();
+    openInlineCard();
+  });
+
+  // Dismiss toolbar when clicking outside (but only if selection has collapsed)
+  document.addEventListener('mousedown', e => {
+    if (selToolbar.contains(e.target) || inlineCard.contains(e.target)) return;
+    // Small delay so the toolbar click event fires before dismiss
+    setTimeout(() => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) dismissSelToolbar();
+    }, 10);
+  });
+
+  // ── Inline card ────────────────────────────────────────────────────────────
+  function openInlineCard() {
+    if (!activeCardEl) return;
+    icCtxText.textContent = selectedText;
+    icTextarea.value = '';
+    icSend.disabled  = true;
+
+    // Position near the selection
+    const sel = window.getSelection();
+    const cardRect = activeCardEl.getBoundingClientRect();
+    let top, left;
+
+    if (sel && !sel.isCollapsed) {
+      const range = sel.getRangeAt(0);
+      const selRect = range.getBoundingClientRect();
+      top  = selRect.bottom + 10;
+      left = selRect.left;
+    } else {
+      top  = cardRect.top + 80;
+      left = cardRect.left + 16;
+    }
+
+    const icW = Math.min(380, cardRect.width - 24);
+    // Clamp to viewport
+    if (left + icW > window.innerWidth - 8) left = window.innerWidth - icW - 8;
+    if (left < 8) left = 8;
+    if (top + 160 > window.innerHeight - 8) top = (sel && !sel.isCollapsed ? sel.getRangeAt(0).getBoundingClientRect().top : cardRect.top) - 170;
+
+    inlineCard.style.left  = left + 'px';
+    inlineCard.style.top   = top  + 'px';
+    inlineCard.style.width = icW  + 'px';
+    inlineCard.classList.add('visible');
+    setTimeout(() => icTextarea.focus(), 50);
+  }
+
+  function dismissInlineCard() {
+    inlineCard.classList.remove('visible');
+    icTextarea.value = '';
+    icSend.disabled  = true;
+  }
+
+  icTextarea.addEventListener('input', () => {
+    icTextarea.style.height = 'auto';
+    icTextarea.style.height = Math.min(icTextarea.scrollHeight, 100) + 'px';
+    icSend.disabled = !icTextarea.value.trim();
+  });
+  icTextarea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!icSend.disabled) submitInlineAsk(); }
+  });
+  icSend.addEventListener('click', submitInlineAsk);
+
+  // ── Utility ────────────────────────────────────────────────────────────────
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+</script>
+</body>
+</html>

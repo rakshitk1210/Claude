@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude — v9 Document Canvas</title>
+  <style>
+    /* ── Fonts ──────────────────────────────────────────────────────────────── */
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+
+    /* ── Design tokens ───────────────────────────────────────────────────────── */
+    :root {
+      --bg-page:   #faf9f5;
+      --bg-card:   #ffffff;
+      --bg-sec:    #f0efea;
+      --bg-human:  #f0eee5;
+      --border:    #e7e8e9;
+      --text-pri:  #141413;
+      --text-sec:  #73726c;
+      --text-greet:#3d3d3a;
+      --accent:    #c15f3f;
+      --sel-blue:  rgba(178, 218, 253, 0.45);
+      --shadow-sm: 0 2px 6px rgba(0,0,0,.08);
+      --shadow-md: 0 2px 24px rgba(0,0,0,.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-pri);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .app { display: flex; height: 100vh; }
+
+    /* ════════════════════════════════════════════════════════════════════════════
+       SIDEBAR
+       ════════════════════════════════════════════════════════════════════════════ */
+    .sidebar {
+      width: 48px;
+      background: var(--bg-page);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      align-items: center; padding: 12px 0 14px;
+      flex-shrink: 0; z-index: 40;
+    }
+    .sb-top { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
+    .sb-btm { display: flex; flex-direction: column; align-items: center; }
+    .sb-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: background 120ms, color 120ms;
+    }
+    .sb-btn:hover  { background: rgba(0,0,0,.05); color: var(--text-pri); }
+    .sb-btn.active { color: var(--accent); }
+    .sb-divider    { width: 20px; height: 1px; background: var(--border); margin: 4px 0; }
+    .user-av {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: white;
+      cursor: pointer; letter-spacing: .04em;
+    }
+
+    .main-wrap { flex: 1; position: relative; overflow: hidden; }
+
+    /* ════════════════════════════════════════════════════════════════════════════
+       SHARED: INPUT COMPONENTS
+       ════════════════════════════════════════════════════════════════════════════ */
+    .input-wrap {
+      background: var(--bg-card);
+      border-radius: 18px; border: 1px solid var(--border);
+      padding: 20px 20px 14px;
+      box-shadow: var(--shadow-md);
+      display: flex; flex-direction: column; gap: 16px;
+      transition: box-shadow 150ms;
+    }
+    .input-wrap:focus-within {
+      box-shadow: 0 2px 24px rgba(0,0,0,.12), 0 0 0 1.5px rgba(0,0,0,.10);
+    }
+    .input-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 18px; font-weight: 500; font-family: inherit;
+      color: var(--text-pri); resize: none; outline: none;
+      line-height: 1.4; min-height: 26px; max-height: 180px;
+      letter-spacing: -.36px;
+    }
+    .input-field::placeholder { color: var(--text-sec); font-weight: 400; }
+    .input-field.reply { font-size: 16px; font-weight: 400; letter-spacing: -.2px; min-height: 22px; }
+
+    .input-tb  { display: flex; align-items: center; justify-content: space-between; }
+    .tb-left   { display: flex; align-items: center; gap: 10px; }
+    .tb-right  { display: flex; align-items: center; gap: 10px; }
+
+    .plus-btn {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1.5px solid var(--border); background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec); transition: border-color 100ms, color 100ms; flex-shrink: 0;
+    }
+    .plus-btn:hover { border-color: var(--text-sec); color: var(--text-pri); }
+
+    .pill-group {
+      display: flex; align-items: center;
+      background: var(--bg-sec); border-radius: 99px; padding: 2px; gap: 1px;
+    }
+    .pill {
+      padding: 4px 16px; border-radius: 99px; border: none; cursor: pointer;
+      font-family: inherit; font-size: 13.5px; font-weight: 400; letter-spacing: -.28px;
+      color: var(--text-sec); background: transparent;
+      transition: background 160ms, color 160ms;
+    }
+    .pill.active { background: var(--text-pri); color: white; }
+
+    .model-sel {
+      display: flex; align-items: center; gap: 4px;
+      border: none; background: transparent; cursor: pointer;
+      font-family: inherit; font-size: 14.5px; color: var(--text-sec);
+      letter-spacing: -.28px; transition: color 100ms;
+    }
+    .model-sel:hover { color: var(--text-pri); }
+    .model-sel b { color: var(--text-pri); font-weight: 500; }
+
+    .voice-btn {
+      color: var(--text-sec); background: transparent; border: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: color 100ms;
+    }
+    .voice-btn:hover { color: var(--text-pri); }
+
+    .send-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 120ms, transform 80ms;
+    }
+    .send-btn.ready    { background: var(--accent); color: white; }
+    .send-btn.stop     { background: var(--text-pri); color: white; }
+    .send-btn.disabled { background: #d6d4cf; color: white; cursor: not-allowed; opacity: .7; }
+    .send-btn:not(.disabled):active { transform: scale(.9); }
+
+    /* ════════════════════════════════════════════════════════════════════════════
+       SHARED: HEADER BAR
+       ════════════════════════════════════════════════════════════════════════════ */
+    .doc-header {
+      height: 56px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 24px; gap: 16px;
+      background: var(--bg-page);
+      flex-shrink: 0; z-index: 30;
+    }
+    .doc-title-wrap {
+      flex: 0 0 auto; min-width: 220px;
+      display: flex; align-items: center; gap: 5px;
+      font-size: 16px; font-weight: 400; color: var(--text-pri);
+      cursor: pointer; letter-spacing: -.32px;
+      transition: opacity 100ms;
+    }
+    .doc-title-wrap:hover { opacity: .75; }
+    .doc-title-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
+    .doc-header-center { flex: 1; display: flex; justify-content: center; }
+
+    .hdr-pill-group {
+      display: flex; align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 99px; padding: 2px; gap: 0;
+      background: var(--bg-page);
+    }
+    .hdr-pill {
+      padding: 6px 16px; border-radius: 99px; border: none; cursor: pointer;
+      font-family: inherit; font-size: 14px; font-weight: 400; letter-spacing: -.28px;
+      color: var(--text-sec); background: transparent;
+      transition: background 160ms, color 160ms;
+    }
+    .hdr-pill.active { background: var(--text-pri); color: white; }
+
+    .doc-header-right {
+      flex: 0 0 auto; min-width: 220px;
+      display: flex; justify-content: flex-end;
+    }
+    .share-btn {
+      height: 40px; padding: 0 16px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg-page);
+      font-family: inherit; font-size: 16px; font-weight: 400;
+      color: var(--text-pri); cursor: pointer; letter-spacing: -.32px;
+      transition: background 100ms, border-color 100ms;
+    }
+    .share-btn:hover { background: var(--bg-sec); border-color: #d0cfca; }
+
+    /* ════════════════════════════════════════════════════════════════════════════
+       SHARED: DOC CONTENT TYPOGRAPHY
+       ════════════════════════════════════════════════════════════════════════════ */
+    .tiempos-body {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 300;
+      line-height: 1.5; color: var(--text-pri);
+      letter-spacing: .01em;
+    }
+    .tiempos-body p { margin-bottom: 20px; }
+    .tiempos-body p:last-child { margin-bottom: 0; }
+
+    /* Streaming cursor */
+    .scursor {
+      display: inline-block;
+      width: 2px; height: 1em;
+      background: var(--text-pri);
+      vertical-align: text-bottom;
+      margin-left: 1px; border-radius: 1px;
+      animation: cur-blink 900ms step-end infinite;
+    }
+    @keyframes cur-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* Skeleton */
+    .skel-block { margin-bottom: 20px; }
+    .skel-line {
+      height: 12px; border-radius: 6px;
+      background: linear-gradient(90deg, #e5e4df 25%, #edede8 50%, #e5e4df 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      margin-bottom: 10px;
+    }
+    .skel-line:last-child { margin-bottom: 0; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Version nav (shared) */
+    .ver-nav-row {
+      display: none; align-items: center; gap: 8px;
+    }
+    .ver-nav-row.show { display: flex; }
+    .ver-btn {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-sec); width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color 100ms;
+    }
+    .ver-btn:hover { color: var(--text-pri); }
+    .ver-btn.disabled { opacity: .3; cursor: not-allowed; }
+    .ver-label { font-size: 16px; color: var(--text-sec); letter-spacing: -.32px; white-space: nowrap; }
+
+    /* Deleted state */
+    .msg-deleted {
+      display: flex; align-items: center; gap: 8px;
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 300;
+      color: var(--text-pri); letter-spacing: .01em;
+    }
+    .msg-deleted button {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-sec); display: flex; align-items: center;
+      transition: color 100ms; padding: 0;
+    }
+    .msg-deleted button:hover { color: var(--text-pri); }
+
+    /* ════════════════════════════════════════════════════════════════════════════
+       HOME SCREEN
+       ════════════════════════════════════════════════════════════════════════════ */
+    #home-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: var(--bg-page); z-index: 20;
+      transition: opacity 240ms ease, transform 240ms ease;
+    }
+    #home-screen.hiding { opacity: 0; transform: translateY(-14px); pointer-events: none; }
+    .greeting-row { display: flex; align-items: center; gap: 18px; margin-bottom: 36px; }
+    .greeting-logo { color: var(--accent); flex-shrink: 0; }
+    .greeting-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 48px; font-weight: 300;
+      color: var(--text-greet); letter-spacing: -.5px; line-height: 1.1;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════════
+       ITERATE MODE SCREEN
+       ════════════════════════════════════════════════════════════════════════════ */
+    #doc-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none;
+      transition: opacity 260ms ease;
+    }
+    #doc-screen.visible { opacity: 1; pointer-events: auto; }
+
+    /* Scrollable doc area */
+    .doc-scroll {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 48px 24px 0;
+      position: relative;
+    }
+    .doc-scroll::-webkit-scrollbar { width: 5px; }
+    .doc-scroll::-webkit-scrollbar-track { background: transparent; }
+    .doc-scroll::-webkit-scrollbar-thumb { background: #d0cfca; border-radius: 3px; }
+
+    /* User bubble */
+    .user-msg-wrap {
+      width: 720px; max-width: 100%;
+      display: flex; justify-content: flex-end;
+      margin-bottom: 40px;
+    }
+    .user-bubble {
+      max-width: 480px;
+      background: var(--bg-human);
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 16px; color: var(--text-pri);
+      line-height: 1.4; letter-spacing: -.32px;
+    }
+
+    /* Document body */
+    .doc-body-wrap {
+      width: 720px; max-width: 100%;
+      padding-bottom: 64px;
+      position: relative;
+    }
+
+    /* Hover toolbar — right side of document (iterate mode) */
+    .doc-toolbar {
+      position: absolute; top: 0; right: -52px;
+      display: flex; gap: 16px; align-items: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 150ms;
+    }
+    .doc-body-wrap:hover .doc-toolbar { opacity: 1; pointer-events: auto; }
+    .doc-toolbar button {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-sec); display: flex; align-items: center; justify-content: center;
+      transition: color 100ms; padding: 2px;
+    }
+    .doc-toolbar button:hover { color: var(--text-pri); }
+    .doc-toolbar button.danger:hover { color: #d94f4f; }
+
+    #doc-content { }
+    #doc-content p { margin-bottom: 20px; }
+    #doc-content p:last-child { margin-bottom: 0; }
+
+    /* Version nav in iterate mode — inserted inline after versioned para */
+    #iter-ver-nav {
+      display: none; align-items: center; gap: 8px;
+      margin-top: 8px; margin-bottom: 20px;
+    }
+    #iter-ver-nav.show { display: flex; }
+
+    /* Reply bar */
+    .reply-bar {
+      padding: 14px 24px 18px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      background: var(--bg-page);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .reply-bar .input-wrap { width: 752px; max-width: calc(100vw - 112px); padding: 16px 20px 12px; }
+    .disclaimer { font-size: 11.5px; color: var(--text-sec); letter-spacing: -.1px; }
+
+    /* Context panel (thread bubbles to the right, appears in iterate mode) */
+    #ctx-panel {
+      width: 360px; flex-shrink: 0;
+      overflow-y: auto; padding: 48px 20px 20px;
+      display: none; flex-direction: column; gap: 12px;
+      border-left: 1px solid var(--border);
+    }
+    #ctx-panel::-webkit-scrollbar { width: 4px; }
+    #ctx-panel::-webkit-scrollbar-thumb { background: #d0cfca; border-radius: 3px; }
+    .ctx-bubble {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: border-color 150ms, box-shadow 150ms;
+      position: relative;
+    }
+    .ctx-bubble.selected {
+      border-color: rgba(66,133,244,0.55);
+      box-shadow: 0 0 0 2.5px rgba(66,133,244,0.18);
+    }
+    .ctx-bubble-text { font-size: 14px; color: var(--text-pri); line-height: 1.5; margin-bottom: 8px; }
+    .ctx-bubble-meta { font-size: 12px; color: var(--text-sec); }
+    .ctx-doc-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex; align-items: center; gap: 10px;
+      cursor: pointer;
+      transition: border-color 150ms, box-shadow 150ms;
+    }
+    .ctx-doc-card.selected {
+      border-color: rgba(66,133,244,0.55);
+      box-shadow: 0 0 0 2.5px rgba(66,133,244,0.18);
+    }
+    .ctx-doc-icon {
+      width: 36px; height: 36px;
+      background: #f0efea; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: var(--text-sec);
+    }
+    .ctx-doc-info { flex: 1; min-width: 0; }
+    .ctx-doc-name { font-size: 13px; font-weight: 500; color: var(--text-pri); }
+    .ctx-doc-type { font-size: 11px; color: var(--text-sec); margin-top: 2px; }
+
+    /* ════════════════════════════════════════════════════════════════════════════
+       ASK MODE SCREEN
+       ════════════════════════════════════════════════════════════════════════════ */
+    #ask-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none;
+      transition: opacity 260ms ease;
+    }
+    #ask-screen.visible { opacity: 1; pointer-events: auto; }
+
+    /* 50/50 split */
+    .ask-split {
+      flex: 1; display: flex; overflow: hidden;
+    }
+
+    /* Left panel: chat */
+    .ask-left {
+      width: 50%; display: flex; flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-page);
+      border-right: 1px solid var(--border);
+    }
+    .ask-chat-scroll {
+      flex: 1; overflow-y: auto; padding: 48px 60px 20px;
+    }
+    .ask-chat-scroll::-webkit-scrollbar { width: 5px; }
+    .ask-chat-scroll::-webkit-scrollbar-thumb { background: #d0cfca; border-radius: 3px; }
+
+    /* User bubble in ask mode: right-aligned */
+    .ask-user-wrap {
+      display: flex; justify-content: flex-end;
+      margin-bottom: 28px;
+    }
+    .ask-user-bubble {
+      max-width: 392px;
+      background: var(--bg-human);
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 16px; color: var(--text-pri);
+      line-height: 1.4; letter-spacing: -.32px;
+    }
+
+    /* AI response label */
+    .ask-ai-label {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 300;
+      color: var(--text-pri); letter-spacing: .01em;
+      margin-bottom: 20px; line-height: 1.5;
+    }
+
+    /* Doc card in ask left panel */
+    .ask-card-wrap { position: relative; }
+    .ask-doc-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 8px 12px 8px 8px;
+      width: 100%; max-width: 547px;
+      display: flex; align-items: center;
+      justify-content: space-between;
+      gap: 0;
+    }
+    .ask-doc-card-left { display: flex; align-items: center; gap: 16px; }
+    .ask-doc-icon {
+      width: 58px; height: 58px;
+      background: #f7f7f7; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; color: var(--text-sec);
+    }
+    .ask-doc-info { }
+    .ask-doc-title-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 14px; font-weight: 400;
+      color: var(--text-pri); letter-spacing: -.28px;
+      margin-bottom: 2px;
+    }
+    .ask-doc-type { font-size: 12px; color: var(--text-sec); letter-spacing: -.24px; }
+    .ask-download-btn {
+      height: 40px; padding: 0 16px; border-radius: 8px;
+      border: 1px solid var(--border); background: white;
+      font-family: inherit; font-size: 16px; font-weight: 400;
+      color: var(--text-pri); cursor: pointer; letter-spacing: -.32px;
+      transition: background 100ms; flex-shrink: 0;
+    }
+    .ask-download-btn:hover { background: #f7f7f5; }
+
+    /* Doc card hover toolbar — BELOW the card (per Figma sticky note) */
+    .ask-card-hover {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 4px 0;
+      opacity: 0; pointer-events: none;
+      transition: opacity 150ms;
+      height: 32px;
+    }
+    .ask-card-wrap:hover .ask-card-hover { opacity: 1; pointer-events: auto; }
+    .ask-card-ver-nav { display: flex; align-items: center; gap: 6px; }
+    .ask-card-actions { display: flex; align-items: center; gap: 14px; margin-left: 4px; }
+    .icon-btn {
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-sec); display: flex; align-items: center; justify-content: center;
+      transition: color 100ms; padding: 2px;
+    }
+    .icon-btn:hover { color: var(--text-pri); }
+    .icon-btn.danger:hover { color: #d94f4f; }
+
+    /* Ask reply bar */
+    .ask-reply-bar {
+      padding: 14px 0 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      flex-shrink: 0; background: var(--bg-page);
+    }
+    .ask-reply-wrap {
+      width: 752px; max-width: calc(100% - 40px);
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px 20px 16px;
+      box-shadow: var(--shadow-md);
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .ask-reply-wrap:focus-within {
+      box-shadow: 0 2px 24px rgba(0,0,0,.12), 0 0 0 1.5px rgba(0,0,0,.10);
+    }
+
+    /* Right panel: document */
+    .ask-right {
+      width: 50%; display: flex; flex-direction: column;
+      background: white; overflow: hidden;
+    }
+    .ask-doc-hdr {
+      padding: 24px 44px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 20px;
+      flex-shrink: 0;
+    }
+    .ask-version-label {
+      font-size: 16px; color: var(--text-pri);
+      letter-spacing: -.32px; font-weight: 400;
+      white-space: nowrap;
+    }
+    /* ask-side version nav */
+    #ask-ver-nav {
+      display: none; align-items: center; gap: 8px;
+    }
+    #ask-ver-nav.show { display: flex; }
+
+    .ask-doc-scroll {
+      flex: 1; overflow-y: auto; padding: 28px 44px 60px;
+    }
+    .ask-doc-scroll::-webkit-scrollbar { width: 5px; }
+    .ask-doc-scroll::-webkit-scrollbar-thumb { background: #d0cfca; border-radius: 3px; }
+
+    .ask-doc-heading {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 24px; font-weight: 400;
+      line-height: 1.2; letter-spacing: .24px;
+      color: var(--text-pri); margin-bottom: 28px;
+    }
+    #ask-doc-content {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 14px; font-weight: 300;
+      line-height: 24px; letter-spacing: .14px;
+      color: var(--text-pri);
+    }
+    #ask-doc-content p { margin-bottom: 18px; }
+    #ask-doc-content p:last-child { margin-bottom: 0; }
+
+    /* Ask mode skeleton */
+    #ask-skeleton {
+      display: none; margin-bottom: 18px;
+    }
+
+    /* Ask mode version nav for doc card (below card) — shows 2/2 once v2 done */
+    #ask-card-nav { display: none; }
+    #ask-card-nav.show { display: flex; }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     FLOATING OVERLAYS
+     ════════════════════════════════════════════════════════════════════════════ -->
+
+<!-- Selection highlight -->
+<div id="sel-highlight" style="
+  position: fixed; pointer-events: none; z-index: 50;
+  background: rgba(178,218,253,0.45);
+  border-radius: 3px;
+  display: none;
+"></div>
+
+<!-- Selection popup: Reply + Iterate -->
+<div id="sel-popup" style="
+  position: fixed; z-index: 60;
+  background: white;
+  border: 1px solid #e7e8e9;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  padding: 10px 14px 10px 10px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+">
+  <button id="popup-reply" style="
+    height: 32px; padding: 0 12px 0 10px;
+    border: 1px solid #e7e8e9; border-radius: 6px;
+    background: white; cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    color: #141413; transition: background 100ms;
+  " onmouseenter="this.style.background='#f5f4ef'" onmouseleave="this.style.background='white'">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+    </svg>
+    Reply
+  </button>
+  <button id="popup-iterate" style="
+    height: 32px; padding: 0 12px 0 10px;
+    border: none; border-radius: 6px;
+    background: #c15f3f; cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    color: white; transition: background 100ms;
+  " onmouseenter="this.style.background='#a94f32'" onmouseleave="this.style.background='#c15f3f'">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+    </svg>
+    Iterate
+  </button>
+</div>
+
+<!-- Inline instruction input (shared by both modes) -->
+<div id="inline-input" style="
+  position: fixed; z-index: 60;
+  display: none; align-items: center; gap: 8px;
+  background: white;
+  border: 1px solid #e7e8e9;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  padding: 8px 8px 8px 14px;
+">
+  <input id="inline-field" type="text" placeholder="I don't like this part can you fix it?" style="
+    border: none; outline: none; background: transparent;
+    font-family: inherit; font-size: 15px;
+    color: #141413; letter-spacing: -.28px;
+    width: 300px;
+  ">
+  <button id="inline-send" style="
+    width: 30px; height: 30px; border-radius: 50%;
+    border: none; background: #c15f3f; color: white;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 120ms; flex-shrink: 0;
+  " onmouseenter="this.style.background='#a94f32'" onmouseleave="this.style.background='#c15f3f'">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 19V5M5 12l7-7 7 7"/>
+    </svg>
+  </button>
+</div>
+
+<div class="app">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sb-top">
+      <button class="sb-btn active" title="Layout">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>
+        </svg>
+      </button>
+      <button class="sb-btn" title="Search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+        </svg>
+      </button>
+      <button class="sb-btn" title="Projects">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M2 10h20"/>
+        </svg>
+      </button>
+      <button class="sb-btn" title="Conversations">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </button>
+      <div class="sb-divider"></div>
+      <button class="sb-btn" title="Library">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="7" height="18" rx="1"/><rect x="10.5" y="3" width="11.5" height="7" rx="1"/><rect x="10.5" y="14" width="11.5" height="7" rx="1"/>
+        </svg>
+      </button>
+    </div>
+    <div class="sb-btm">
+      <div class="user-av">RK</div>
+    </div>
+  </aside>
+
+  <div class="main-wrap">
+
+    <!-- ══════════════════════════════════════════════════════════════════════════
+         HOME SCREEN
+         ══════════════════════════════════════════════════════════════════════════ -->
+    <div id="home-screen">
+      <div class="greeting-row">
+        <svg class="greeting-logo" width="44" height="44" viewBox="0 0 100 100" fill="currentColor">
+          <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+        </svg>
+        <span class="greeting-text">Good afternoon, Rakshit</span>
+      </div>
+      <div class="input-wrap" id="home-input-wrap" style="width:752px;max-width:calc(100vw - 112px);">
+        <textarea class="input-field" id="home-field" placeholder="How can I help you today?" rows="1"></textarea>
+        <div class="input-tb">
+          <div class="tb-left">
+            <button class="plus-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <div class="pill-group">
+              <button class="pill active" id="hpill-ask">Ask</button>
+              <button class="pill"        id="hpill-iter">Iterate</button>
+            </div>
+          </div>
+          <div class="tb-right">
+            <button class="model-sel">
+              <b>Opus 4.6</b>&nbsp;<span style="color:var(--text-sec)">Extended</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <button class="voice-btn" id="home-voice">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/>
+              </svg>
+            </button>
+            <button class="send-btn disabled" id="home-send">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /#home-screen -->
+
+    <!-- ══════════════════════════════════════════════════════════════════════════
+         ITERATE MODE SCREEN
+         ══════════════════════════════════════════════════════════════════════════ -->
+    <div id="doc-screen">
+
+      <header class="doc-header">
+        <div class="doc-title-wrap">
+          <span class="doc-title-text" id="doc-title-text">Cover letter for Anthropic</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-sec);flex-shrink:0;"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="doc-header-center">
+          <div class="hdr-pill-group">
+            <button class="hdr-pill" id="dpill-ask">Ask</button>
+            <button class="hdr-pill active" id="dpill-iter">Iterate</button>
+          </div>
+        </div>
+        <div class="doc-header-right"><button class="share-btn">Share</button></div>
+      </header>
+
+      <!-- Canvas: doc + context panel side by side -->
+      <div style="flex:1;display:flex;overflow:hidden;position:relative;">
+        <div class="doc-scroll" id="doc-scroll">
+
+          <div class="user-msg-wrap">
+            <div class="user-bubble" id="user-bubble">Help me draft a cover letter for a role at Anthropic</div>
+          </div>
+
+          <div class="doc-body-wrap" id="doc-body-wrap">
+            <!-- Hover toolbar (right side, iterate mode) -->
+            <div class="doc-toolbar" id="doc-toolbar">
+              <button id="tb-copy" title="Copy">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                </svg>
+              </button>
+              <button id="tb-refresh" title="Regenerate">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                  <path d="M21 3v5h-5"/>
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                  <path d="M8 16H3v5"/>
+                </svg>
+              </button>
+              <button id="tb-delete" title="Delete" class="danger">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </button>
+            </div>
+
+            <div id="doc-content" class="tiempos-body" style="font-family:'Tiempos Headline',Georgia,serif;font-size:16px;font-weight:300;line-height:1.5;letter-spacing:.01em;"></div>
+
+            <!-- Skeleton (iterate mode) -->
+            <div id="iter-skeleton" style="display:none;margin-bottom:20px;">
+              <div class="skel-line" style="width:100%"></div>
+              <div class="skel-line" style="width:100%"></div>
+              <div class="skel-line" style="width:100%"></div>
+              <div class="skel-line" style="width:100%"></div>
+              <div class="skel-line" style="width:55%"></div>
+            </div>
+
+            <!-- Version nav (inline, iterate mode) -->
+            <div id="iter-ver-nav">
+              <button class="ver-btn" id="iter-ver-prev">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <span class="ver-label" id="iter-ver-label">2 / 2</span>
+              <button class="ver-btn disabled" id="iter-ver-next">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Context panel (right side, appears when user sends reply) -->
+        <div id="ctx-panel" style="display:none;"></div>
+      </div>
+
+      <!-- Reply bar -->
+      <div class="reply-bar">
+        <div class="input-wrap" id="reply-wrap">
+          <textarea class="input-field reply" id="reply-field" placeholder="Reply…" rows="1"></textarea>
+          <div class="input-tb">
+            <div class="tb-left">
+              <button class="plus-btn" id="iter-attach-btn" title="Attach doc">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+            </div>
+            <div class="tb-right">
+              <button class="model-sel">
+                <b>Opus 4.6</b>&nbsp;<span style="color:var(--text-sec)">Extended</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <button class="send-btn disabled" id="reply-send">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <p class="disclaimer">Claude is AI and can make mistakes. Please double-check responses.</p>
+      </div>
+
+    </div><!-- /#doc-screen -->
+
+    <!-- ══════════════════════════════════════════════════════════════════════════
+         ASK MODE SCREEN
+         ══════════════════════════════════════════════════════════════════════════ -->
+    <div id="ask-screen">
+
+      <header class="doc-header">
+        <div class="doc-title-wrap">
+          <span class="doc-title-text" id="ask-title-text">Cover letter for Anthropic</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-sec);flex-shrink:0;"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <div class="doc-header-center">
+          <div class="hdr-pill-group">
+            <button class="hdr-pill active" id="apill-ask">Ask</button>
+            <button class="hdr-pill"        id="apill-iter">Iterate</button>
+          </div>
+        </div>
+        <div class="doc-header-right"><button class="share-btn">Share</button></div>
+      </header>
+
+      <div class="ask-split">
+
+        <!-- ── Left: chat panel ──────────────────────────────────────────────── -->
+        <div class="ask-left">
+          <div class="ask-chat-scroll" id="ask-chat-scroll">
+
+            <div class="ask-user-wrap">
+              <div class="ask-user-bubble" id="ask-user-bubble">Help me draft a cover letter for a role at Anthropic</div>
+            </div>
+
+            <p class="ask-ai-label">Here is a cover letter generated for your role at anthropic</p>
+
+            <!-- Doc card with hover toolbar below -->
+            <div class="ask-card-wrap" id="ask-card-wrap">
+              <div class="ask-doc-card">
+                <div class="ask-doc-card-left">
+                  <div class="ask-doc-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                  </div>
+                  <div class="ask-doc-info">
+                    <div class="ask-doc-title-text" id="ask-card-title">V1 • Cover letter for Anthropic</div>
+                    <div class="ask-doc-type">Document • PDF</div>
+                  </div>
+                </div>
+                <button class="ask-download-btn">Download</button>
+              </div>
+
+              <!-- Hover toolbar BELOW the card (per Figma sticky note) -->
+              <div class="ask-card-hover">
+                <div class="ask-card-ver-nav" id="ask-card-nav" style="display:none;align-items:center;gap:6px;">
+                  <button class="ver-btn" id="ask-card-prev">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                  </button>
+                  <span class="ver-label" id="ask-card-ver-label">2 / 2</span>
+                  <button class="ver-btn disabled" id="ask-card-next">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                  </button>
+                </div>
+                <div class="ask-card-actions">
+                  <button class="icon-btn" title="Copy document">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                      <rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                    </svg>
+                  </button>
+                  <button class="icon-btn" title="Regenerate">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
+                    </svg>
+                  </button>
+                  <button class="icon-btn danger" title="Delete">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /.ask-chat-scroll -->
+
+          <!-- Ask reply bar -->
+          <div class="ask-reply-bar">
+            <div class="ask-reply-wrap">
+              <textarea class="input-field reply" id="ask-reply-field" placeholder="Reply…" rows="1"></textarea>
+              <div class="input-tb">
+                <div class="tb-left">
+                  <button class="plus-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                </div>
+                <div class="tb-right">
+                  <button class="model-sel">
+                    <b>Opus 4.6</b>&nbsp;<span style="color:var(--text-sec)">Extended</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+                  <button class="send-btn ready" id="ask-send">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p class="disclaimer">Claude is AI and can make mistakes. Please double-check responses.</p>
+          </div>
+        </div><!-- /.ask-left -->
+
+        <!-- ── Right: document panel ─────────────────────────────────────────── -->
+        <div class="ask-right">
+          <div class="ask-doc-hdr">
+            <span class="ask-version-label" id="ask-version-label">Version 1 • 7:34 PM</span>
+            <!-- Version nav — shown once V2 exists -->
+            <div id="ask-ver-nav">
+              <button class="ver-btn" id="ask-ver-prev">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <span class="ver-label" id="ask-ver-label">2 / 2</span>
+              <button class="ver-btn disabled" id="ask-ver-next">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="ask-doc-scroll" id="ask-doc-scroll">
+            <h1 class="ask-doc-heading">Cover letter for Anthropic</h1>
+            <div id="ask-doc-content"></div>
+
+            <!-- Skeleton (ask mode) -->
+            <div id="ask-skeleton" class="skel-block">
+              <div class="skel-line" style="width:100%"></div>
+              <div class="skel-line" style="width:100%"></div>
+              <div class="skel-line" style="width:100%"></div>
+              <div class="skel-line" style="width:100%"></div>
+              <div class="skel-line" style="width:60%"></div>
+            </div>
+          </div>
+        </div><!-- /.ask-right -->
+
+      </div><!-- /.ask-split -->
+    </div><!-- /#ask-screen -->
+
+  </div><!-- /.main-wrap -->
+</div><!-- /.app -->
+
+<script>
+'use strict';
+
+// ── Document content ──────────────────────────────────────────────────────────
+const PARAS_V1 = [
+  `Dear Hiring Team,`,
+  `I'm writing to express my strong interest in the Product Designer role at Anthropic. The opportunity to shape how millions of people experience AI—designing interactions that don't yet have established conventions—is exactly the kind of design challenge I've spent my career preparing for. Anthropic's commitment to building AI that is reliable, interpretable, and steerable resonates deeply with how I approach design: with intention, rigor, and an unwavering focus on the people I'm designing for.`,
+  `Over the past five years, I've led end-to-end product design for complex, data-rich platforms used at massive scale. As a Senior Product Designer at Groww—a trading platform serving over 60 million customers—I owned the Derivatives pod, building tools for professional traders managing high-frequency workflows. My flagship project, Option Chain, was a year-long initiative to design a customizable interface for viewing real-time derivatives data. I shipped it in two phases—an MVP to validate core workflows, then a full rollout across terminal, web, and mobile—with micro-interactions like center-spine snapping and custom haptics for frame-level precision. Over 300,000 traders use it daily.`,
+  `What draws me to Anthropic specifically is the design team's position at the intersection of craft, research, and product intuition. I've always believed the best design work happens when you stay close to the underlying technology, and the idea of designing around capabilities that are emerging in real-time—shaping whether Claude feels like a tool or a trusted collaborator—is a once-in-a-generation opportunity. I'm particularly excited by the challenge of building trust through interaction design: making AI systems that users can understand, rely on, and feel confident using.`,
+  `I bring a strong craft sensibility paired with technical fluency. I prototype in code (HTML, CSS, and JavaScript) to communicate ideas with the fidelity they deserve, and I've found this especially valuable when designing novel interaction patterns that static mockups can't fully convey.`,
+  `I'd welcome the chance to share my portfolio and discuss how my experience could contribute to Anthropic's design team. I'm deeply motivated by the mission of making AI safe and beneficial, and I'd be honored to help shape what that looks and feels like for the people who use it every day.`,
+  `Warm regards,\n[Your Name]`,
+];
+
+// V2 replacement for paragraphs 1-3 (combined into one paragraph)
+const V2_PARA = `What draws me most to this role is Anthropic's commitment to building AI that earns trust through clarity and interpretability. Over the past five years designing high-stakes interfaces—from real-time derivatives trading tools to AI-powered research products—I've learned that the hardest design challenge isn't crafting the right interaction, it's making complex systems feel honest and legible to the people depending on them. That's exactly the challenge I want to spend the next decade on.`;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let screenMode    = 'home';    // 'home' | 'iterate' | 'ask'
+let iterState     = 'idle';    // 'idle' | 'streaming' | 'ready' | 'selected' | 'iterating' | 'deleted'
+let iterVersion   = 1;
+let iterHasV2     = false;
+let iterSavedHTML = null;
+
+let askState      = 'ready';  // 'ready' | 'selected' | 'iterating'
+let askVersion    = 1;
+let askHasV2      = false;
+
+// Which element triggered the current popup/inline (so we know which doc to iterate)
+let activeTarget  = null;  // 'iterate' | 'ask'
+
+// Context panel selection count
+let ctxItems      = [];   // { el, selected }
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+const homeScreen    = document.getElementById('home-screen');
+const docScreen     = document.getElementById('doc-screen');
+const askScreen     = document.getElementById('ask-screen');
+const homeField     = document.getElementById('home-field');
+const homeSend      = document.getElementById('home-send');
+const homeVoice     = document.getElementById('home-voice');
+const docTitleEl    = document.getElementById('doc-title-text');
+const userBubbleEl  = document.getElementById('user-bubble');
+const docScroll     = document.getElementById('doc-scroll');
+const docContent    = document.getElementById('doc-content');
+const replyField    = document.getElementById('reply-field');
+const replySend     = document.getElementById('reply-send');
+const ctxPanel      = document.getElementById('ctx-panel');
+const iterSkeleton  = document.getElementById('iter-skeleton');
+const iterVerNav    = document.getElementById('iter-ver-nav');
+const iterVerLabel  = document.getElementById('iter-ver-label');
+const iterVerPrev   = document.getElementById('iter-ver-prev');
+const iterVerNext   = document.getElementById('iter-ver-next');
+
+const askTitleEl    = document.getElementById('ask-title-text');
+const askUserBubble = document.getElementById('ask-user-bubble');
+const askChatScroll = document.getElementById('ask-chat-scroll');
+const askReplyField = document.getElementById('ask-reply-field');
+const askSend       = document.getElementById('ask-send');
+const askDocContent = document.getElementById('ask-doc-content');
+const askDocScroll  = document.getElementById('ask-doc-scroll');
+const askSkeleton   = document.getElementById('ask-skeleton');
+const askVerNav     = document.getElementById('ask-ver-nav');
+const askVerLabel   = document.getElementById('ask-ver-label');
+const askVerPrev    = document.getElementById('ask-ver-prev');
+const askVerNext    = document.getElementById('ask-ver-next');
+const askVersionLabel = document.getElementById('ask-version-label');
+const askCardNav    = document.getElementById('ask-card-nav');
+const askCardVerLabel = document.getElementById('ask-card-ver-label');
+
+const selHighlight  = document.getElementById('sel-highlight');
+const selPopup      = document.getElementById('sel-popup');
+const inlineInput   = document.getElementById('inline-input');
+const inlineField   = document.getElementById('inline-field');
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function autoResize(el, max) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, max) + 'px';
+}
+function syncSend(field, btn, hasAlwaysSend) {
+  const has = hasAlwaysSend || field.value.trim().length > 0;
+  btn.classList.toggle('ready', has);
+  btn.classList.toggle('disabled', !has);
+}
+
+// ── Home input ────────────────────────────────────────────────────────────────
+homeField.addEventListener('input', () => {
+  autoResize(homeField, 180);
+  const has = homeField.value.trim().length > 0;
+  if (homeVoice) homeVoice.style.display = has ? 'none' : '';
+  homeSend.classList.toggle('ready', has);
+  homeSend.classList.toggle('disabled', !has);
+});
+homeField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitHome(); }
+});
+homeSend.addEventListener('click', submitHome);
+
+function submitHome() {
+  const q = homeField.value.trim();
+  if (!q || iterState !== 'idle') return;
+  const short = q.length > 40 ? q.slice(0, 38) + '…' : q;
+
+  // Determine which mode from home pill
+  const homeAskActive = document.getElementById('hpill-ask').classList.contains('active');
+
+  docTitleEl.textContent = short;
+  userBubbleEl.textContent = q;
+  askTitleEl.textContent = short;
+  askUserBubble.textContent = q;
+
+  homeScreen.classList.add('hiding');
+  setTimeout(() => {
+    if (homeAskActive) {
+      goAskMode();
+      populateAskDoc();
+    } else {
+      goIterateMode();
+      startInitialStream();
+    }
+  }, 220);
+}
+
+// ── Mode switching ────────────────────────────────────────────────────────────
+function goIterateMode() {
+  screenMode = 'iterate';
+  docScreen.classList.add('visible');
+  askScreen.classList.remove('visible');
+  // Sync pill states
+  document.getElementById('dpill-iter').classList.add('active');
+  document.getElementById('dpill-ask').classList.remove('active');
+  document.getElementById('apill-ask').classList.add('active');
+  document.getElementById('apill-iter').classList.remove('active');
+}
+
+function goAskMode() {
+  screenMode = 'ask';
+  askScreen.classList.add('visible');
+  docScreen.classList.remove('visible');
+  // Sync pill states
+  document.getElementById('apill-ask').classList.add('active');
+  document.getElementById('apill-iter').classList.remove('active');
+  document.getElementById('dpill-ask').classList.remove('active');
+  document.getElementById('dpill-iter').classList.add('active');
+}
+
+// Header pill clicks — iterate mode header
+document.getElementById('dpill-ask').addEventListener('click', () => {
+  if (screenMode === 'ask') return;
+  dismissAll();
+  if (iterState === 'ready' || iterState === 'deleted') {
+    goAskMode();
+    if (askDocContent.children.length === 0) populateAskDoc();
+  }
+});
+document.getElementById('dpill-iter').addEventListener('click', () => {
+  if (screenMode === 'iterate') return;
+  dismissAll();
+  goIterateMode();
+});
+
+// Header pill clicks — ask mode header
+document.getElementById('apill-ask').addEventListener('click', () => {});
+document.getElementById('apill-iter').addEventListener('click', () => {
+  if (screenMode === 'iterate') return;
+  dismissAll();
+  goIterateMode();
+  // If iterate mode hasn't started yet, start stream
+  if (iterState === 'idle') {
+    startInitialStream();
+  }
+});
+
+// Home pill toggles
+['hpill-ask','hpill-iter'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function() {
+    document.getElementById('hpill-ask').classList.toggle('active', this.id === 'hpill-ask');
+    document.getElementById('hpill-iter').classList.toggle('active', this.id === 'hpill-iter');
+  });
+});
+
+// ── Populate Ask mode doc panel ───────────────────────────────────────────────
+function populateAskDoc() {
+  askDocContent.innerHTML = '';
+  const paras = getIterParas();
+  paras.forEach(text => {
+    const p = document.createElement('p');
+    p.textContent = text;
+    askDocContent.appendChild(p);
+  });
+  // Sync version state
+  if (askHasV2) {
+    askVerNav.classList.add('show');
+    askVersionLabel.textContent = `Version ${askVersion} • 7:34 PM`;
+    askVerLabel.textContent = `${askVersion} / 2`;
+    askCardNav.style.display = 'flex';
+    askCardVerLabel.textContent = `${askVersion} / 2`;
+    document.getElementById('ask-card-title').textContent = `V${askVersion} • Cover letter for Anthropic`;
+  }
+}
+
+function getIterParas() {
+  if (iterVersion === 2 || askHasV2) {
+    return [PARAS_V1[0], V2_PARA, ...PARAS_V1.slice(4)];
+  }
+  return [PARAS_V1[0], ...PARAS_V1.slice(1)];
+}
+
+// ── Iterate mode: initial stream ──────────────────────────────────────────────
+function startInitialStream() {
+  iterState = 'streaming';
+  docContent.innerHTML = '';
+  iterVerNav.classList.remove('show');
+
+  const cursor = document.createElement('span');
+  cursor.className = 'scursor';
+  docContent.appendChild(cursor);
+
+  streamParas(docContent, cursor, docScroll, PARAS_V1, () => {
+    iterState = 'ready';
+  });
+}
+
+// ── streamParas: word-by-word streaming ───────────────────────────────────────
+function streamParas(container, cursor, scrollEl, paras, onDone) {
+  const chunks = [];
+  paras.forEach((text, i) => {
+    if (i > 0) chunks.push(null);
+    text.split(/(\s+)/).forEach(w => { if (w) chunks.push(w); });
+  });
+
+  let idx = 0, curP = null;
+  function next() {
+    if (idx >= chunks.length) {
+      cursor.remove();
+      if (onDone) onDone();
+      return;
+    }
+    const ch = chunks[idx++];
+    if (ch === null) { curP = null; setTimeout(next, 46); return; }
+    if (!curP) {
+      curP = document.createElement('p');
+      container.insertBefore(curP, cursor);
+    }
+    const s = document.createElement('span');
+    s.textContent = ch;
+    curP.appendChild(s);
+    if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+    setTimeout(next, 9 + Math.random() * 13);
+  }
+  next();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// ITERATE MODE: REPLY BAR → CONTEXT PANEL + MULTI-SELECT
+// ────────────────────────────────────────────────────────────────────────────
+
+replyField.addEventListener('input', () => {
+  autoResize(replyField, 140);
+  updateIterReplyBar();
+});
+replyField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitIterReply(); }
+});
+replySend.addEventListener('click', submitIterReply);
+
+function updateIterReplyBar() {
+  const selectedCount = ctxItems.filter(i => i.selected).length;
+  const hasText = replyField.value.trim().length > 0;
+  if (selectedCount > 0) {
+    replyField.placeholder = `${selectedCount} selected  ·  Reply…`;
+  } else {
+    replyField.placeholder = 'Reply…';
+  }
+  replySend.classList.toggle('ready', hasText || selectedCount > 0);
+  replySend.classList.toggle('disabled', !hasText && selectedCount === 0);
+}
+
+// Attach button: adds a context doc card
+document.getElementById('iter-attach-btn').addEventListener('click', () => {
+  if (iterState !== 'ready') return;
+  addCtxDocCard("Rakshit's Resume", "Document • PDF");
+});
+
+function submitIterReply() {
+  const text = replyField.value.trim();
+  const selectedCount = ctxItems.filter(i => i.selected).length;
+  if (!text && selectedCount === 0) return;
+  if (iterState !== 'ready') return;
+
+  // Add a chat bubble to the context panel
+  if (text) addCtxBubble(text, 'Rakshit', '4:58 PM');
+
+  replyField.value = '';
+  autoResize(replyField, 140);
+  updateIterReplyBar();
+
+  // If there are selected items + text, trigger V2 generation
+  if (selectedCount > 0 && text) {
+    // Deselect all
+    ctxItems.forEach(item => {
+      item.selected = false;
+      item.el.classList.remove('selected');
+    });
+    updateIterReplyBar();
+    setTimeout(() => runIterIteration(), 800);
+  }
+}
+
+function ensureCtxPanel() {
+  if (ctxPanel.style.display === 'none') {
+    ctxPanel.style.display = 'flex';
+  }
+}
+
+function addCtxBubble(text, name, time) {
+  ensureCtxPanel();
+  const div = document.createElement('div');
+  div.className = 'ctx-bubble';
+  div.innerHTML = `<div class="ctx-bubble-text">${text}</div><div class="ctx-bubble-meta">${name} · ${time}</div>`;
+  ctxPanel.appendChild(div);
+  const item = { el: div, selected: false };
+  ctxItems.push(item);
+  div.addEventListener('click', () => toggleCtxItem(item));
+}
+
+function addCtxDocCard(name, type) {
+  ensureCtxPanel();
+  const div = document.createElement('div');
+  div.className = 'ctx-doc-card';
+  div.innerHTML = `
+    <div class="ctx-doc-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+    </div>
+    <div class="ctx-doc-info">
+      <div class="ctx-doc-name">${name}</div>
+      <div class="ctx-doc-type">${type}</div>
+    </div>`;
+  ctxPanel.appendChild(div);
+  const item = { el: div, selected: false };
+  ctxItems.push(item);
+  div.addEventListener('click', () => toggleCtxItem(item));
+}
+
+function toggleCtxItem(item) {
+  item.selected = !item.selected;
+  item.el.classList.toggle('selected', item.selected);
+  updateIterReplyBar();
+}
+
+// ── Iterate mode: run iteration ───────────────────────────────────────────────
+function runIterIteration() {
+  iterState = 'streaming';
+  const paras = Array.from(docContent.querySelectorAll('p'));
+
+  // Hide versioned paragraphs (indices 1, 2, 3 — body paragraphs)
+  for (let i = 1; i <= 3; i++) {
+    if (paras[i]) paras[i].style.display = 'none';
+  }
+
+  // Show skeleton after first paragraph
+  const insertAfter = paras[0] || docContent;
+  docContent.insertBefore(iterSkeleton, insertAfter.nextSibling);
+  iterSkeleton.style.display = 'block';
+
+  setTimeout(() => {
+    iterSkeleton.style.display = 'none';
+    iterSkeleton.remove();
+    docContent.appendChild(iterSkeleton);
+
+    // Remove old versioned paras
+    for (let i = 0; i < 3; i++) {
+      const p = docContent.querySelectorAll('p')[1];
+      if (p) p.remove();
+    }
+
+    // Insert new V2 paragraph after header
+    const allParas = docContent.querySelectorAll('p');
+    const insertBefore = allParas[1] || null;
+    const newP = document.createElement('p');
+    const cursor = document.createElement('span');
+    cursor.className = 'scursor';
+    newP.appendChild(cursor);
+    docContent.insertBefore(newP, insertBefore);
+
+    const words = V2_PARA.split(/(\s+)/).filter(Boolean);
+    let wi = 0;
+    function streamWord() {
+      if (wi >= words.length) {
+        cursor.remove();
+        iterVersion = 2;
+        iterHasV2 = true;
+        iterState = 'ready';
+        showIterVerNav();
+        docScroll.scrollTop = docScroll.scrollHeight;
+        return;
+      }
+      const s = document.createElement('span');
+      s.textContent = words[wi++];
+      newP.insertBefore(s, cursor);
+      docScroll.scrollTop = docScroll.scrollHeight;
+      setTimeout(streamWord, 9 + Math.random() * 13);
+    }
+    streamWord();
+  }, 1800);
+}
+
+// ── Iterate mode: version nav ─────────────────────────────────────────────────
+function showIterVerNav() {
+  iterVerLabel.textContent = `${iterVersion} / 2`;
+  iterVerNav.classList.add('show');
+  const paras = docContent.querySelectorAll('p');
+  const afterPara = paras[1];
+  if (afterPara) {
+    docContent.insertBefore(iterVerNav, afterPara.nextSibling);
+  }
+  updateIterVerBtns();
+}
+
+function updateIterVerBtns() {
+  iterVerLabel.textContent = `${iterVersion} / 2`;
+  iterVerPrev.classList.toggle('disabled', iterVersion <= 1);
+  iterVerNext.classList.toggle('disabled', iterVersion >= 2);
+}
+
+iterVerPrev.addEventListener('click', () => {
+  if (iterVersion <= 1 || iterState !== 'ready') return;
+  iterVersion = 1;
+  const vPara = docContent.querySelectorAll('p')[1];
+  if (vPara) vPara.textContent = PARAS_V1[1];
+  updateIterVerBtns();
+});
+iterVerNext.addEventListener('click', () => {
+  if (iterVersion >= 2 || iterState !== 'ready') return;
+  iterVersion = 2;
+  const vPara = docContent.querySelectorAll('p')[1];
+  if (vPara) vPara.textContent = V2_PARA;
+  updateIterVerBtns();
+});
+
+// ── Iterate mode: doc toolbar ─────────────────────────────────────────────────
+document.getElementById('tb-copy').addEventListener('click', () => {
+  const text = docContent.innerText;
+  navigator.clipboard.writeText(text).catch(() => {});
+  const btn = document.getElementById('tb-copy');
+  const orig = btn.innerHTML;
+  btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2db57e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+  setTimeout(() => { btn.innerHTML = orig; }, 1400);
+});
+
+document.getElementById('tb-refresh').addEventListener('click', () => {
+  if (iterState !== 'ready') return;
+  dismissAll();
+  iterState = 'streaming';
+  iterVerNav.classList.remove('show');
+  iterHasV2 = false;
+  iterVersion = 1;
+  docContent.innerHTML = '';
+  iterSkeleton.style.display = 'none';
+  ctxItems = [];
+  ctxPanel.innerHTML = '';
+  ctxPanel.style.display = 'none';
+
+  const cursor = document.createElement('span');
+  cursor.className = 'scursor';
+  docContent.appendChild(cursor);
+  streamParas(docContent, cursor, docScroll, PARAS_V1, () => { iterState = 'ready'; });
+});
+
+document.getElementById('tb-delete').addEventListener('click', () => {
+  if (iterState !== 'ready') return;
+  dismissAll();
+  iterSavedHTML = docContent.innerHTML;
+  iterState = 'deleted';
+  iterVerNav.classList.remove('show');
+  docContent.innerHTML = '';
+  const delEl = document.createElement('div');
+  delEl.className = 'msg-deleted';
+  delEl.innerHTML = `<span>Message was deleted</span>
+    <button id="restore-btn" title="Restore">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+      </svg>
+    </button>`;
+  docContent.appendChild(delEl);
+  document.getElementById('restore-btn').addEventListener('click', () => {
+    docContent.innerHTML = iterSavedHTML;
+    iterState = 'ready';
+    if (iterHasV2) showIterVerNav();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+// TEXT SELECTION → POPUP (works in both iterate + ask modes)
+// ════════════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('mouseup', handleMouseUp);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') dismissAll(); });
+document.addEventListener('mousedown', e => {
+  if (!selPopup.contains(e.target) && !inlineInput.contains(e.target)) {
+    if (iterState === 'selected') iterState = 'ready';
+    if (askState === 'selected') askState = 'ready';
+    dismissAll();
+  }
+});
+
+function handleMouseUp(e) {
+  if (selPopup.contains(e.target) || inlineInput.contains(e.target)) return;
+
+  const iterReady = (iterState === 'ready' || iterState === 'selected') && screenMode === 'iterate';
+  const askReady  = (askState  === 'ready' || askState  === 'selected') && screenMode === 'ask';
+  if (!iterReady && !askReady) return;
+
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.toString().trim().length < 5) {
+    dismissAll();
+    return;
+  }
+
+  const anchor = sel.anchorNode;
+  const focus  = sel.focusNode;
+
+  let target = null;
+  if (iterReady && docContent.contains(anchor)) target = 'iterate';
+  if (askReady  && askDocContent.contains(anchor)) target = 'ask';
+  if (!target) { dismissAll(); return; }
+
+  activeTarget = target;
+  const range = sel.getRangeAt(0);
+  const rect  = range.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return;
+
+  showSelectionHighlight(rect);
+  showSelPopup(rect);
+
+  if (target === 'iterate') iterState = 'selected';
+  if (target === 'ask')     askState  = 'selected';
+}
+
+function showSelectionHighlight(rect) {
+  selHighlight.style.left   = rect.left + 'px';
+  selHighlight.style.top    = rect.top + 'px';
+  selHighlight.style.width  = rect.width + 'px';
+  selHighlight.style.height = rect.height + 'px';
+  selHighlight.style.display = 'block';
+}
+
+function showSelPopup(rect) {
+  selPopup.style.display = 'flex';
+  let left = rect.right + 8;
+  let top  = rect.bottom - 36;
+  const pw = 196;
+  if (left + pw > window.innerWidth - 16) left = rect.left - pw - 8;
+  if (top + 52 > window.innerHeight - 16) top  = rect.top - 52;
+  selPopup.style.left = left + 'px';
+  selPopup.style.top  = top  + 'px';
+}
+
+function dismissAll() {
+  selPopup.style.display   = 'none';
+  inlineInput.style.display = 'none';
+  selHighlight.style.display = 'none';
+  window.getSelection()?.removeAllRanges();
+  if (iterState === 'selected' || iterState === 'iterating') iterState = 'ready';
+  if (askState  === 'selected' || askState  === 'iterating') askState  = 'ready';
+  activeTarget = null;
+}
+
+// Popup: Reply button
+document.getElementById('popup-reply').addEventListener('click', () => { dismissAll(); });
+
+// Popup: Iterate button
+document.getElementById('popup-iterate').addEventListener('click', () => {
+  selPopup.style.display = 'none';
+
+  const hlRect = selHighlight.getBoundingClientRect();
+  let left = hlRect.right + 8;
+  let top  = hlRect.bottom - 46;
+  if (left + 380 > window.innerWidth - 16) left = hlRect.left - 388;
+  if (top + 52 > window.innerHeight - 16)  top  = hlRect.top - 52;
+
+  inlineInput.style.left    = left + 'px';
+  inlineInput.style.top     = top  + 'px';
+  inlineInput.style.display = 'flex';
+  inlineField.value = '';
+  inlineField.focus();
+
+  if (activeTarget === 'iterate') iterState = 'iterating';
+  if (activeTarget === 'ask')     askState  = 'iterating';
+});
+
+// Inline send
+document.getElementById('inline-send').addEventListener('click', submitInline);
+inlineField.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); submitInline(); }
+  if (e.key === 'Escape') dismissAll();
+});
+
+function submitInline() {
+  const target = activeTarget;
+  dismissAll();
+  if (target === 'iterate') runIterIteration();
+  if (target === 'ask')     runAskIteration();
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// ASK MODE: ITERATION FLOW
+// ════════════════════════════════════════════════════════════════════════════════
+
+function runAskIteration() {
+  askState = 'streaming';
+  const paras = Array.from(askDocContent.querySelectorAll('p'));
+
+  // Hide versioned paragraphs (indices 1, 2, 3)
+  for (let i = 1; i <= 3; i++) {
+    if (paras[i]) paras[i].style.display = 'none';
+  }
+
+  // Show skeleton
+  const insertAfter = paras[0] || askDocContent;
+  askDocContent.insertBefore(askSkeleton, insertAfter.nextSibling);
+  askSkeleton.style.display = 'block';
+
+  setTimeout(() => {
+    askSkeleton.style.display = 'none';
+    askSkeleton.remove();
+    askDocContent.appendChild(askSkeleton);
+
+    // Remove old versioned paras
+    for (let i = 0; i < 3; i++) {
+      const p = askDocContent.querySelectorAll('p')[1];
+      if (p) p.remove();
+    }
+
+    // Insert new paragraph at position 1
+    const allParas = askDocContent.querySelectorAll('p');
+    const insertBefore = allParas[1] || null;
+    const newP = document.createElement('p');
+    const cursor = document.createElement('span');
+    cursor.className = 'scursor';
+    newP.appendChild(cursor);
+    askDocContent.insertBefore(newP, insertBefore);
+
+    const words = V2_PARA.split(/(\s+)/).filter(Boolean);
+    let wi = 0;
+    function streamWord() {
+      if (wi >= words.length) {
+        cursor.remove();
+        askVersion = 2;
+        askHasV2  = true;
+        iterHasV2 = true;
+        askState  = 'ready';
+        showAskVerNav();
+        askDocScroll.scrollTop = askDocScroll.scrollHeight;
+        return;
+      }
+      const s = document.createElement('span');
+      s.textContent = words[wi++];
+      newP.insertBefore(s, cursor);
+      askDocScroll.scrollTop = askDocScroll.scrollHeight;
+      setTimeout(streamWord, 9 + Math.random() * 13);
+    }
+    streamWord();
+  }, 1800);
+}
+
+// ── Ask mode: version nav ─────────────────────────────────────────────────────
+function showAskVerNav() {
+  askVerLabel.textContent = `${askVersion} / 2`;
+  askVerNav.classList.add('show');
+  askVersionLabel.textContent = `Version ${askVersion} • 7:34 PM`;
+
+  // Show card nav (below the doc card)
+  askCardNav.style.display = 'flex';
+  askCardVerLabel.textContent = `${askVersion} / 2`;
+  document.getElementById('ask-card-title').textContent = `V${askVersion} • Cover letter for Anthropic`;
+
+  updateAskVerBtns();
+}
+
+function updateAskVerBtns() {
+  askVerLabel.textContent = `${askVersion} / 2`;
+  askCardVerLabel.textContent = `${askVersion} / 2`;
+  askVerPrev.classList.toggle('disabled', askVersion <= 1);
+  askVerNext.classList.toggle('disabled', askVersion >= 2);
+  document.getElementById('ask-card-prev').classList.toggle('disabled', askVersion <= 1);
+  document.getElementById('ask-card-next').classList.toggle('disabled', askVersion >= 2);
+}
+
+askVerPrev.addEventListener('click', () => {
+  if (askVersion <= 1 || askState !== 'ready') return;
+  askVersion = 1;
+  const vPara = askDocContent.querySelectorAll('p')[1];
+  if (vPara) vPara.textContent = PARAS_V1[1];
+  askVersionLabel.textContent = `Version 1 • 7:34 PM`;
+  document.getElementById('ask-card-title').textContent = 'V1 • Cover letter for Anthropic';
+  updateAskVerBtns();
+});
+askVerNext.addEventListener('click', () => {
+  if (askVersion >= 2 || askState !== 'ready') return;
+  askVersion = 2;
+  const vPara = askDocContent.querySelectorAll('p')[1];
+  if (vPara) vPara.textContent = V2_PARA;
+  askVersionLabel.textContent = `Version 2 • 7:34 PM`;
+  document.getElementById('ask-card-title').textContent = 'V2 • Cover letter for Anthropic';
+  updateAskVerBtns();
+});
+
+// Card nav buttons (below the card)
+document.getElementById('ask-card-prev').addEventListener('click', () => {
+  askVerPrev.click();
+});
+document.getElementById('ask-card-next').addEventListener('click', () => {
+  askVerNext.click();
+});
+
+// ── Ask reply send button ─────────────────────────────────────────────────────
+askReplyField.addEventListener('input', () => { autoResize(askReplyField, 140); });
+askReplyField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitAskReply(); }
+});
+askSend.addEventListener('click', submitAskReply);
+
+function submitAskReply() {
+  const text = askReplyField.value.trim();
+  if (!text || askState !== 'ready') return;
+  askReplyField.value = '';
+  autoResize(askReplyField, 140);
+  // For now, run a new iteration
+  runAskIteration();
+}
+
+// ── Initial state for ask doc (when opening directly in ask mode) ─────────────
+// If ask screen becomes visible without any content, populate it
+const askObserver = new MutationObserver(() => {
+  if (askScreen.classList.contains('visible') && askDocContent.children.length === 0 && iterState !== 'idle') {
+    populateAskDoc();
+  }
+});
+askObserver.observe(askScreen, { attributes: true, attributeFilter: ['class'] });
+</script>
+</body>
+</html>

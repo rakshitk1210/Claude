@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude — v5 Iterate-First</title>
+  <style>
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-semibold.woff2') format('woff2');
+      font-weight: 600; font-style: normal;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-sidebar: #1c1917;
+      --bg-main:    #f5f4ef;
+      --bg-input:   #eceae3;
+      --bg-human:   #e8e6df;
+      --text-100:   #1c1917;
+      --text-300:   #6b6860;
+      --text-400:   #9b9892;
+      --text-500:   #b5b2ab;
+      --accent:     #c15f3c;
+      --border:     #e4e2dc;
+      --sel-bg:     #b2dafd;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; background: var(--bg-main); color: var(--text-100); }
+
+    /* ─── App shell ──────────────────────────────────────────── */
+    .app { display: flex; height: 100vh; }
+
+    /* ─── Sidebar ────────────────────────────────────────────── */
+    .sidebar {
+      width: 48px; background: var(--bg-sidebar);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 10px; flex-shrink: 0;
+    }
+    .sidebar-top  { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1; }
+    .sidebar-bottom { display: flex; flex-direction: column; align-items: center; }
+    .sb-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #9b9892; transition: background 120ms, color 120ms;
+    }
+    .sb-btn:hover  { background: rgba(255,255,255,.08); color: #f5f4ef; }
+    .sb-btn.active { color: rgba(255,255,255,.85); }
+    .sb-divider { width: 22px; height: 1px; background: rgba(255,255,255,.07); margin: 5px 0; }
+    .user-avatar {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; font-weight: 600; color: white; cursor: pointer; letter-spacing: .03em;
+    }
+
+    /* ─── Content area ───────────────────────────────────────── */
+    .content-area { flex: 1; display: flex; overflow: hidden; }
+
+    /* ─── Iterate pane (LEFT) ─────────────────────────────────── */
+    .iterate-pane {
+      width: 0; overflow: hidden; flex-shrink: 0;
+      display: flex; flex-direction: column;
+      background: white;
+      transition: width 380ms cubic-bezier(.4,0,.2,1);
+    }
+    .app.iterate-open .iterate-pane {
+      width: 64%; border-right: 1px solid var(--border);
+    }
+
+    /* Version Tabs */
+    .version-tabs {
+      display: flex; align-items: stretch;
+      border-bottom: 1px solid var(--border);
+      height: 48px; flex-shrink: 0; background: white;
+    }
+    .tabs-scroll {
+      display: flex; align-items: flex-end; overflow-x: auto; flex: 1;
+      padding: 0 0 0 16px;
+    }
+    .tabs-scroll::-webkit-scrollbar { display: none; }
+
+    .version-tab {
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 12px; height: 100%;
+      font-size: 13px; font-weight: 500; color: var(--text-400);
+      cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      white-space: nowrap; transition: color 120ms, border-color 120ms;
+      font-family: inherit;
+    }
+    .version-tab:hover { color: var(--text-100); }
+    .version-tab.active { color: var(--text-100); border-bottom-color: var(--accent); }
+    .tab-dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; flex-shrink: 0; }
+    .version-tab.active .tab-dot { background: var(--accent); }
+    .tab-close-btn {
+      width: 16px; height: 16px; border-radius: 3px; border: none; background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); opacity: 0; transition: opacity 100ms, background 100ms;
+      flex-shrink: 0;
+    }
+    .version-tab:hover .tab-close-btn { opacity: .6; }
+    .version-tab.active .tab-close-btn { opacity: .5; }
+    .tab-close-btn:hover { background: rgba(0,0,0,.07); opacity: 1 !important; }
+
+    .tabs-actions {
+      display: flex; align-items: center; gap: 2px;
+      padding: 0 10px; flex-shrink: 0;
+    }
+    .tab-action-btn {
+      width: 32px; height: 32px; border-radius: 7px; border: none; background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: background 100ms, color 100ms;
+    }
+    .tab-action-btn:hover { background: rgba(0,0,0,.05); color: var(--text-100); }
+    .tab-action-btn.active { color: var(--accent); background: rgba(193,95,60,.08); }
+
+    /* Version Content */
+    .version-content-wrap {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      display: flex; flex-direction: column;
+    }
+    .version-content-wrap::-webkit-scrollbar { width: 5px; }
+    .version-content-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,.08); border-radius: 3px; }
+
+    .version-panel { display: none; padding: 40px 48px 60px; flex-direction: column; }
+    .version-panel.active { display: flex; }
+
+    /* Compare mode */
+    .app.compare-mode .version-content-wrap {
+      flex-direction: row; overflow-y: hidden;
+    }
+    .app.compare-mode .version-panel {
+      display: flex !important; flex: 1; overflow-y: auto; min-height: 100%;
+    }
+    .app.compare-mode .version-panel + .version-panel {
+      border-left: 1px solid var(--border);
+    }
+
+    /* Version panel content structure */
+    .ver-iteration-label {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 34px; font-weight: 300; color: var(--text-100);
+      margin-bottom: 20px; line-height: 1.15; flex-shrink: 0;
+    }
+    .ver-doc-title {
+      font-size: 14px; font-weight: 600; color: var(--text-300);
+      margin-bottom: 4px; line-height: 1.45; flex-shrink: 0;
+    }
+    .ver-doc-subtitle {
+      font-size: 13.5px; font-weight: 400; color: var(--text-400);
+      margin-bottom: 20px; line-height: 1.5; flex-shrink: 0;
+    }
+    .ver-divider {
+      border: none; border-top: 1px solid var(--border);
+      margin: 0 0 24px; flex-shrink: 0;
+    }
+    .version-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 17px; font-weight: 400; line-height: 1.82; color: var(--text-100);
+      outline: none;
+    }
+    .version-text p + p { margin-top: 16px; }
+    .version-text ::selection    { background: var(--sel-bg); }
+    .version-text ::-moz-selection { background: var(--sel-bg); }
+
+    /* Version empty state */
+    .ver-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; padding: 40px;
+    }
+    .ver-empty p {
+      font-size: 13px; color: var(--text-500); text-align: center;
+    }
+
+    /* Skeleton */
+    .skeleton-wrap { display: flex; flex-direction: column; gap: 11px; }
+    .skeleton-line {
+      height: 17px; border-radius: 8px;
+      background: linear-gradient(90deg, #f0eeea 25%, #e4e2dc 50%, #f0eeea 75%);
+      background-size: 200% 100%; animation: shimmer 1.4s ease infinite;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ─── Chat pane (RIGHT) ──────────────────────────────────── */
+    .chat-pane {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+      min-width: 0; background: var(--bg-main);
+    }
+
+    /* Chat header — only visible when iterate-open */
+    .chat-header {
+      display: none; height: 48px;
+      align-items: center; padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0; background: var(--bg-main);
+    }
+    .app.iterate-open .chat-header { display: flex; }
+    .chat-title-btn {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 14px; font-weight: 500; color: var(--text-100);
+      border: none; background: transparent; cursor: pointer; font-family: inherit;
+      border-radius: 6px; padding: 4px 6px; margin-left: -6px;
+      transition: background 100ms;
+    }
+    .chat-title-btn:hover { background: rgba(0,0,0,.05); }
+
+    /* Messages */
+    .messages-wrap { flex: 1; overflow-y: auto; scroll-behavior: smooth; }
+    .messages-wrap::-webkit-scrollbar { width: 5px; }
+    .messages-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,.1); border-radius: 3px; }
+
+    .messages-inner {
+      max-width: 688px; margin: 0 auto; padding: 40px 24px 24px;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+    .app.iterate-open .messages-inner {
+      max-width: none; padding: 16px 20px 16px; gap: 14px;
+    }
+
+    /* Greeting / empty state */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: calc(100vh - 180px); gap: 0;
+    }
+    .greeting-row {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 4px;
+    }
+    .greeting-logo { width: 44px; height: 44px; color: var(--accent); flex-shrink: 0; }
+    .greeting-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 36px; font-weight: 300; color: var(--text-100);
+    }
+    .app.iterate-open .empty-state { display: none; }
+
+    /* Human message */
+    .msg-human { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+    .human-bubble {
+      background: var(--bg-human); border-radius: 18px 18px 4px 18px;
+      padding: 10px 15px; font-size: 15px; line-height: 1.55;
+      max-width: 78%; color: var(--text-100); word-break: break-word;
+    }
+    .app.iterate-open .human-bubble { font-size: 14px; max-width: 92%; }
+    .human-meta { display: flex; align-items: center; padding-right: 2px; }
+    .meta-time { font-size: 11px; color: var(--text-400); }
+
+    /* Context quote block (from version selection, shown in chat) */
+    .msg-ctx-block { display: flex; justify-content: flex-end; }
+    .ctx-quote {
+      display: flex; max-width: 88%;
+      background: rgba(178,218,253,.18); border-radius: 0 8px 8px 0;
+      overflow: hidden;
+    }
+    .ctx-quote-bar { width: 3px; background: #74b9f5; flex-shrink: 0; }
+    .ctx-quote-text {
+      padding: 9px 13px;
+      font-size: 13px; font-style: italic; line-height: 1.5; color: var(--text-300);
+    }
+
+    /* Claude short message */
+    .msg-claude {
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .claude-avatar-sm {
+      width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; margin-top: 2px;
+    }
+    .claude-building {
+      font-size: 14px; color: var(--text-400); padding-top: 1px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .claude-short-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 15px; line-height: 1.65; color: var(--text-100); padding-top: 1px;
+    }
+    .app.iterate-open .claude-short-text { font-size: 14px; }
+
+    /* Claude full response (Ask mode) */
+    .msg-claude-wrap { display: flex; flex-direction: column; }
+    .claude-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .claude-avatar-md { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; }
+    .claude-name { font-size: 13px; font-weight: 500; color: var(--text-300); }
+    .claude-body {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 400; line-height: 1.78; color: var(--text-100);
+    }
+    .claude-body p + p { margin-top: 14px; }
+    .claude-body strong { font-weight: 600; }
+    .claude-body em { font-style: italic; }
+    .claude-act-row {
+      display: flex; align-items: center; gap: 1px; margin-top: 12px;
+      opacity: 0; transition: opacity 140ms;
+    }
+    .msg-claude-wrap:hover .claude-act-row { opacity: 1; }
+    .act-btn {
+      width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: background 100ms, color 100ms;
+    }
+    .act-btn:hover { background: rgba(0,0,0,.06); color: var(--text-100); }
+
+    /* Streaming cursor */
+    .stream-cursor {
+      display: inline-block; width: 2px; height: 14px; background: var(--text-300);
+      border-radius: 1px; vertical-align: text-bottom; margin-left: 1px;
+      animation: blink .85s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ─── Input area ─────────────────────────────────────────── */
+    .input-area { padding: 8px 16px 14px; flex-shrink: 0; background: var(--bg-main); }
+    .input-wrap {
+      max-width: 688px; margin: 0 auto;
+      background: var(--bg-input); border-radius: 14px;
+      padding: 10px 10px 8px 14px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: box-shadow 150ms;
+    }
+    .app.iterate-open .input-wrap { max-width: 100%; }
+    .input-wrap:focus-within { box-shadow: 0 0 0 1.5px rgba(0,0,0,.12); }
+
+    /* Context strip (from Reply) */
+    .input-ctx {
+      display: none; align-items: flex-start; gap: 8px;
+      padding: 6px 0 8px; border-bottom: 1px solid rgba(0,0,0,.07); margin-bottom: 2px;
+    }
+    .input-ctx.visible { display: flex; }
+    .input-ctx-bar {
+      width: 2px; min-height: 32px; align-self: stretch;
+      background: #74b9f5; border-radius: 1px; flex-shrink: 0;
+    }
+    .input-ctx-text {
+      font-size: 13px; line-height: 1.5; color: var(--text-400);
+      font-style: italic; flex: 1; min-width: 0;
+    }
+    .input-ctx-close {
+      width: 18px; height: 18px; border-radius: 4px; border: none; background: transparent;
+      cursor: pointer; color: var(--text-400);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: color 100ms;
+    }
+    .input-ctx-close:hover { color: var(--text-100); }
+
+    .input-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 15px; font-family: inherit; color: var(--text-100);
+      resize: none; outline: none; line-height: 1.5;
+      min-height: 22px; max-height: 140px;
+    }
+    .input-field::placeholder { color: var(--text-400); }
+
+    .input-tb { display: flex; align-items: center; justify-content: space-between; }
+    .tb-left  { display: flex; align-items: center; gap: 4px; }
+    .tb-right { display: flex; align-items: center; gap: 4px; }
+
+    /* Mode Pills */
+    .mode-pills { display: flex; align-items: center; gap: 2px; }
+    .mode-pill {
+      height: 28px; padding: 0 12px; border-radius: 100px; border: none;
+      font-size: 12.5px; font-weight: 500; cursor: pointer;
+      background: transparent; color: var(--text-400); font-family: inherit;
+      transition: background 150ms, color 150ms;
+    }
+    .mode-pill.active { background: var(--accent); color: white; }
+    .mode-pill:not(.active):hover { background: rgba(0,0,0,.06); color: var(--text-100); }
+
+    .tool-btn {
+      height: 28px; padding: 0 8px; border: none; border-radius: 7px;
+      background: transparent; cursor: pointer; display: flex; align-items: center; gap: 4px;
+      color: var(--text-400); font-size: 12.5px; font-weight: 500; font-family: inherit;
+      transition: background 100ms, color 100ms;
+    }
+    .tool-btn:hover { background: rgba(0,0,0,.06); color: var(--text-100); }
+
+    .model-btn {
+      height: 28px; padding: 0 8px; border: none; border-radius: 7px;
+      background: transparent; cursor: pointer; display: flex; align-items: center; gap: 3px;
+      color: var(--text-400); font-size: 12.5px; font-weight: 500; font-family: inherit;
+      transition: background 100ms, color 100ms;
+    }
+    .model-btn:hover { background: rgba(0,0,0,.06); color: var(--text-100); }
+
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #2db57e; }
+
+    .send-btn {
+      width: 30px; height: 30px; border-radius: 50%; background: var(--text-100);
+      border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 100ms, transform 80ms;
+    }
+    .send-btn:hover:not(:disabled) { background: #333; }
+    .send-btn:active:not(:disabled) { transform: scale(.92); }
+    .send-btn:disabled { background: #c8c5be; cursor: not-allowed; }
+
+    .disclaimer {
+      text-align: center; font-size: 11px; color: var(--text-500);
+      margin-top: 5px; max-width: 688px; margin-left: auto; margin-right: auto;
+    }
+    .app.iterate-open .disclaimer { max-width: none; }
+
+    /* ─── Floating version toolbar ───────────────────────────── */
+    .floating-toolbar {
+      position: fixed; z-index: 200;
+      background: white; border: 1px solid #e4e2dc;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.07);
+      display: none; align-items: center; gap: 4px; padding: 5px 7px;
+      pointer-events: all; white-space: nowrap; user-select: none;
+    }
+    .floating-toolbar.visible { display: flex; }
+    .ft-divider { width: 1px; height: 18px; background: #e4e2dc; margin: 0 2px; }
+    .ft-icon-btn {
+      width: 28px; height: 28px; border-radius: 7px; border: none; background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-300); transition: background 100ms, color 100ms;
+    }
+    .ft-icon-btn:hover { background: rgba(0,0,0,.05); color: var(--text-100); }
+    .ft-btn {
+      height: 28px; padding: 0 11px; border-radius: 7px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 4px; font-family: inherit;
+      transition: background 100ms, color 100ms;
+    }
+    .ft-btn-ghost { border: 1px solid #e0ddd7; background: white; color: var(--text-100); }
+    .ft-btn-ghost:hover { background: var(--bg-main); }
+    .ft-btn-primary { border: none; background: var(--accent); color: white; }
+    .ft-btn-primary:hover { background: #b05535; }
+
+    /* ─── Inline ask card ────────────────────────────────────── */
+    #inline-card {
+      position: fixed; z-index: 201;
+      background: white; border: 1px solid #e4e2dc;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08), 0 12px 32px rgba(0,0,0,.07);
+      display: none; flex-direction: column; gap: 10px;
+      padding: 12px 12px 10px 14px;
+      width: 340px; pointer-events: all;
+    }
+    #inline-card.visible { display: flex; }
+    .ic-ctx {
+      font-size: 11.5px; color: var(--text-400); font-style: italic;
+      padding: 4px 8px;
+      background: rgba(178,218,253,.25);
+      border-left: 2px solid #74b9f5; border-radius: 0 4px 4px 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ic-textarea {
+      width: 100%; border: none; background: transparent;
+      font-size: 14px; font-family: inherit; color: var(--text-100);
+      resize: none; outline: none; line-height: 1.5;
+      min-height: 20px; max-height: 100px;
+    }
+    .ic-textarea::placeholder { color: var(--text-400); }
+    .ic-footer { display: flex; align-items: center; justify-content: space-between; }
+    .ic-close {
+      width: 28px; height: 28px; border-radius: 7px; border: none; background: transparent;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: background 100ms, color 100ms;
+    }
+    .ic-close:hover { background: rgba(0,0,0,.05); color: var(--text-100); }
+    .ic-send {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 80ms, transform 80ms;
+    }
+    .ic-send:hover { background: #b05535; }
+    .ic-send:active { transform: scale(.92); }
+    .ic-send:disabled { background: #c8c5be; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <button class="sb-btn active">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg>
+      </button>
+      <button class="sb-btn" onclick="newChat()">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+      </button>
+      <button class="sb-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M8.5 2C12.0899 2 15 4.91015 15 8.5C15 10.1149 14.4094 11.5908 13.4346 12.7275L17.8535 17.1465C18.0244 17.6827 17.8535 17.8535 17.1465 17.8535L12.7275 13.4346C11.5908 14.4094 10.1149 15 8.5 15C4.91015 15 2 12.0899 2 8.5C2 4.91015 4.91015 2 8.5 2ZM8.5 3C5.46243 3 3 5.46243 3 8.5C3 11.5376 5.46243 14 8.5 14C11.5376 14 14 11.5376 14 8.5C14 5.46243 11.5376 3 8.5 3Z"/></svg>
+      </button>
+      <button class="sb-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M15.8198 7C16.6885 7 17.3624 7.73158 17.3178 8.57617L17.2993 8.74707L16.1332 15.7471C16.0126 16.4699 15.3865 17 14.6538 17H5.34711C4.6142 17 3.98833 16.47 3.86762 15.7471L2.7016 8.74707C2.54922 7.83277 3.25418 7 4.18109 7H15.8198ZM16.0004 5.5C16.0004 5.224 15.7764 5 15.5004 5H4.50043C4.22428 5 4.00043 5.22386 4.00043 5.5C4.00043 5.77614 4.22428 6 4.50043 6H15.5004C15.7764 6 16.0004 5.776 16.0004 5.5ZM14.5004 3.5C14.5004 3.224 14.2764 3 14.0004 3H6.00043C5.72428 3 5.50043 3.22386 5.50043 3.5C5.50043 3.77614 5.72428 4 6.00043 4H14.0004C14.2764 4 14.5004 3.776 14.5004 3.5Z"/></svg>
+      </button>
+      <div class="sb-divider"></div>
+      <button class="sb-btn">
+        <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M239.2,97.29a15.89,15.89,0,0,0-13-10.78l-59.06-4.92L144.27,26.8a15.91,15.91,0,0,0-29.3,0L92.86,81.59,33.8,86.51A15.89,15.89,0,0,0,20.8,97.29,16.46,16.46,0,0,0,25.95,115l45,38.83L57.17,211.8a16.38,16.38,0,0,0,6.86,17.67,15.84,15.84,0,0,0,18.62-.8L128,193.38l45.35,35.29a15.86,15.86,0,0,0,18.62.8,16.38,16.38,0,0,0,6.86-17.67l-13.78-58-45-38.83A16.46,16.46,0,0,0,239.2,97.29Z"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="user-avatar">RK</div>
+    </div>
+  </aside>
+
+  <!-- ── Content area ── -->
+  <div class="content-area">
+
+    <!-- ── Iterate pane (LEFT) ── -->
+    <div class="iterate-pane" id="iterate-pane">
+      <div class="version-tabs" id="version-tabs">
+        <div class="tabs-scroll" id="tabs-scroll">
+          <!-- tabs injected here -->
+        </div>
+        <div class="tabs-actions">
+          <button class="tab-action-btn" id="compare-btn" title="Compare versions" onclick="toggleCompare()">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+              <rect x="2" y="3" width="7" height="14" rx="1.5"/>
+              <rect x="11" y="3" width="7" height="14" rx="1.5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="version-content-wrap" id="version-content-wrap">
+        <div class="ver-empty" id="ver-empty">
+          <p>Send a message to generate your first version</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chat pane (RIGHT) ── -->
+    <div class="chat-pane" id="chat-pane">
+
+      <!-- Chat header — shown only when iterate mode active -->
+      <div class="chat-header">
+        <button class="chat-title-btn">
+          <span id="convo-title">New conversation</span>
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z" fill="var(--text-400)"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages-wrap" id="messages-wrap">
+        <div class="messages-inner" id="messages-inner">
+          <div class="empty-state" id="empty-state">
+            <div class="greeting-row">
+              <svg class="greeting-logo" viewBox="0 0 100 100" fill="currentColor">
+                <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+              </svg>
+              <span class="greeting-text">Good afternoon, Rakshit</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="input-area">
+        <div class="input-wrap" id="input-wrap">
+          <!-- Context strip (from Reply in version toolbar) -->
+          <div class="input-ctx" id="input-ctx">
+            <div class="input-ctx-bar"></div>
+            <div class="input-ctx-text" id="input-ctx-text"></div>
+            <button class="input-ctx-close" onclick="clearCtx()">
+              <svg width="10" height="10" viewBox="0 0 20 20" fill="none"><path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+
+          <textarea class="input-field" id="input-field" placeholder="How can I help you today?" rows="1"></textarea>
+
+          <div class="input-tb">
+            <div class="tb-left">
+              <div class="mode-pills">
+                <button class="mode-pill active" id="pill-ask" onclick="setMode('ask')">Ask</button>
+                <button class="mode-pill" id="pill-iterate" onclick="setMode('iterate')">Iterate</button>
+              </div>
+              <button class="tool-btn">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+              </button>
+            </div>
+            <div class="tb-right">
+              <button class="model-btn">
+                <span id="model-name">Opus 4.6</span>
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z"/></svg>
+              </button>
+              <div class="status-dot"></div>
+              <button class="send-btn" id="send-btn" disabled>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V12.1855L13.626 8.66797C13.8094 8.46166 14.1256 8.44275 14.332 8.62598C14.5383 8.80936 14.5573 9.12563 14.374 9.33203L10.374 13.832C10.21 13.9654 10.107 14 10 14C9.85718 14 9.72086 13.9388 9.62598 13.832L5.62598 9.33203C5.45079 9.04872 5.48735 8.78653 5.66797 8.62598C5.84854 8.46567 6.1127 8.46039 6.29883 8.59961L6.37402 8.66797L9.5 12.1855V3.5C9.5 3.22386 9.72386 3 10 3Z"/>
+                  <path d="M3.5 13C3.22386 13 3 13.2239 3 13.5V15.5C3 16.3284 3.67157 17 4.5 17H15.5C16.3284 17 17 16.3284 17 15.5V13.5C17 13.2239 16.7761 13 16.5 13C16.2239 13 16 13.2239 16 13.5V15.5C16 15.7761 15.7761 16 15.5 16H4.5C4.22386 16 4 15.7761 4 15.5V13.5C4 13.2239 3.77614 13 3.5 13Z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <p class="disclaimer">Claude is AI and can make mistakes. Please double-check responses.</p>
+      </div>
+
+    </div><!-- /chat-pane -->
+
+  </div><!-- /content-area -->
+</div><!-- /app -->
+
+<!-- ── Version selection toolbar ── -->
+<div class="floating-toolbar" id="version-toolbar">
+  <button class="ft-icon-btn" id="vt-like" title="Looks good">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.56055 2C11.1381 2 12.3211 3.44332 12.0117 4.99023L11.6094 7H13.8438C15.5431 7 16.836 8.52594 16.5566 10.2021L15.876 14.2842C15.6148 15.8513 14.2586 17 12.6699 17H4.5C3.67157 17 3 16.3284 3 15.5V9.23828C3 8.57996 3.4294 7.99838 4.05859 7.80469L5.19824 7.4541C6.02983 7.15302 6.59327 6.63008 6.89746 5.9541L8.41113 2.58984C8.66235 2.17643 8.97898 2 9.32324 2H9.56055Z"/></svg>
+  </button>
+  <button class="ft-icon-btn" id="vt-dislike" title="Needs work">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.4395 18C8.86191 18 7.67891 16.5567 7.98828 15.0098L8.39063 13H6.15625C4.45694 13 3.16403 11.4741 3.44336 9.79785L4.12402 5.71582C4.38522 4.14868 5.74136 3 7.33008 3H15.5C16.3284 3 17 3.67157 17 4.5V10.7617C17 11.42 16.5706 12.0016 15.9414 12.1953L14.8018 12.5459C13.9702 12.847 13.4067 13.3699 13.1025 14.0459L11.5889 17.4102C11.3376 17.8236 11.021 18 10.6768 18H10.4395Z"/></svg>
+  </button>
+  <div class="ft-divider"></div>
+  <button class="ft-btn ft-btn-ghost" id="vt-reply">Reply</button>
+  <button class="ft-btn ft-btn-primary" id="vt-ask">Ask</button>
+</div>
+
+<!-- ── Inline ask card ── -->
+<div id="inline-card">
+  <div class="ic-ctx" id="ic-ctx-text"></div>
+  <textarea class="ic-textarea" id="ic-textarea" placeholder="Ask about this selection…" rows="1"></textarea>
+  <div class="ic-footer">
+    <button class="ic-close" onclick="dismissInlineCard()">
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="none"><path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+    <button class="ic-send" id="ic-send" disabled>
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V12.1855L13.626 8.66797C13.8094 8.46166 14.1256 8.44275 14.332 8.62598C14.5383 8.80936 14.5573 9.12563 14.374 9.33203L10.374 13.832C10.21 13.9654 10.107 14 10 14C9.85718 14 9.72086 13.9388 9.62598 13.832L5.62598 9.33203C5.45079 9.04872 5.48735 8.78653 5.66797 8.62598C5.84854 8.46567 6.1127 8.46039 6.29883 8.59961L6.37402 8.66797L9.5 12.1855V3.5C9.5 3.22386 9.72386 3 10 3Z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  // ── Content pools ──────────────────────────────────────────────────────────
+  const CHAT_RESPONSES = [
+    `<p>The distinction you're pointing at is real. Most systems treat state as an implementation concern — something to be managed, cached, synchronized. But for the user, state <em>is</em> the experience. When they can't see it, navigate it, or trust it, the whole thing falls apart.</p><p>The specific failure mode here is <strong>implicit state loss</strong> — the user made progress, that progress exists somewhere, but there's no affordance to surface it. It's not that the state is gone; it's that it's become inaccessible. That's a UI problem, not a data problem.</p>`,
+    `<p>That's a sharper way to put it than most people do. The linearity isn't a constraint of the technology — it's a design choice that made sense for conversation but doesn't make sense for editing.</p><p>When you're having a conversation, append-only is natural. When you're producing an artifact, it's suffocating. The mental model mismatch is what causes the friction.</p>`,
+    `<p>Precisely. The cost of refinement isn't in generating the next version — that's cheap now. The cost is in <strong>evaluating</strong> it: reading, comparing, deciding what's better, figuring out what changed and whether the change is an improvement.</p><p>Everything that reduces evaluation cost is a multiplier on how much iteration actually happens. Which is why the interface matters more than people assume.</p>`,
+    `<p>There's a real gap between what the model can do and what the interface lets you express. The model can hold enormous nuance; the text box can only hold one sentence at a time. The interaction surface is the bottleneck — not the intelligence.</p>`,
+  ];
+
+  const BUILDING_MSGS = [
+    'Building your first version\u2026',
+    'Refining based on your feedback\u2026',
+    'Working on a new version\u2026',
+    'Applying your changes\u2026',
+  ];
+
+  const CHAT_CONFIRMS = [
+    'Here is your first version.',
+    'Here is your updated version.',
+    'Done \u2014 your new version is ready.',
+    'Here\u2019s the revised version with your changes.',
+  ];
+
+  const VERSION_VARIANTS = [
+    {
+      title: 'State, Trust, and the Design of Refinement',
+      subtitle: 'A working draft \u2014 first pass',
+      body: `<p>The distinction you're pointing at is real. Most systems treat state as an implementation concern \u2014 something to be managed, cached, synchronized. But for the user, state <em>is</em> the experience. When they can\u2019t see it, navigate it, or trust it, the whole thing falls apart.</p><p>The specific failure mode here is <strong>implicit state loss</strong> \u2014 the user made progress, that progress exists somewhere, but there\u2019s no affordance to surface it. It\u2019s not that the state is gone; it\u2019s that it\u2019s become inaccessible. That\u2019s a UI problem, not a data problem.</p><p>Everything follows from this. Once you frame state visibility as the primary design constraint, the solutions become obvious: version tabs, side-by-side comparison, explicit history, rollback. The model can already do all of this \u2014 the interface just needs to surface it.</p>`,
+    },
+    {
+      title: 'Linearity as Design Choice, Not Technical Constraint',
+      subtitle: 'Revised draft \u2014 second pass',
+      body: `<p>The linearity of chat isn\u2019t a constraint of the technology \u2014 it\u2019s a design choice that made sense for conversation but doesn\u2019t make sense for editing.</p><p>When you\u2019re having a conversation, append-only is natural. When you\u2019re producing an artifact, it\u2019s suffocating. The mental model mismatch is what causes the friction \u2014 users keep expecting to get \u201cback\u201d to something, but there\u2019s no back to get to.</p><p>The fix isn\u2019t more messages. It\u2019s separating the conversation from the artifact it\u2019s producing. Let the conversation be append-only. Let the artifact be versioned, navigable, and replaceable.</p>`,
+    },
+    {
+      title: 'Evaluation Cost as the Hidden Variable',
+      subtitle: 'Third draft \u2014 sharpened focus',
+      body: `<p>The cost of refinement isn\u2019t in generating the next version \u2014 that\u2019s cheap now. The cost is in <strong>evaluating</strong> it: reading, comparing, deciding what\u2019s better, figuring out what changed and whether the change is an improvement.</p><p>Everything that reduces evaluation cost is a multiplier on how much iteration actually happens. Side-by-side comparison eliminates re-reading. Version tabs make rollback safe. An inline question thread means you don\u2019t lose your place.</p><p>Which is why the interface matters more than people assume. The quality of the output is shaped as much by the review surface as by the model.</p>`,
+    },
+    {
+      title: 'The Interface as Bottleneck',
+      subtitle: 'Alternative direction \u2014 fourth pass',
+      body: `<p>There\u2019s a real gap between what the model can do and what the interface lets you express. The model can hold enormous nuance; the text box can only hold one sentence at a time. The interaction surface is the bottleneck \u2014 not the intelligence.</p><p>When you add selection, context, and versioning, you\u2019re not adding features \u2014 you\u2019re removing constraints. You\u2019re letting the user say \u201cthis specific thing, change it this way\u201d instead of \u201cplease make the whole thing better somehow.\u201d</p><p>The paradox is that better tools reveal the quality ceiling more clearly. Once iteration is easy, you start seeing how much further the output could go.</p>`,
+    },
+  ];
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let isStreaming  = false;
+  let messageCount = 0;
+  let iterateMode  = false;
+  let compareMode  = false;
+  let chatRespIdx  = 0;
+  let buildingIdx  = 0;
+  let confirmIdx   = 0;
+  let variantIdx   = 0;
+  let versions     = [];
+  let activeVerId  = null;
+
+  // Version toolbar state
+  let vtSelectedText = '';
+  let vtTargetPanel  = null;
+  let icSelectedText = '';
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const app         = document.getElementById('app');
+  const inputField  = document.getElementById('input-field');
+  const sendBtn     = document.getElementById('send-btn');
+  const msgInner    = document.getElementById('messages-inner');
+  const msgWrap     = document.getElementById('messages-wrap');
+  const convoTitle  = document.getElementById('convo-title');
+  const verContent  = document.getElementById('version-content-wrap');
+  const tabsScroll  = document.getElementById('tabs-scroll');
+  const inputCtx    = document.getElementById('input-ctx');
+  const inputCtxText= document.getElementById('input-ctx-text');
+  const compareBtn  = document.getElementById('compare-btn');
+  const modelName   = document.getElementById('model-name');
+  const versionToolbar = document.getElementById('version-toolbar');
+  const inlineCard     = document.getElementById('inline-card');
+  const icTextarea     = document.getElementById('ic-textarea');
+  const icSend         = document.getElementById('ic-send');
+
+  // ── Input ──────────────────────────────────────────────────────────────────
+  inputField.addEventListener('input', () => {
+    inputField.style.height = 'auto';
+    inputField.style.height = Math.min(inputField.scrollHeight, 140) + 'px';
+    sendBtn.disabled = !inputField.value.trim() || isStreaming;
+  });
+  inputField.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) submitMain(); }
+  });
+  sendBtn.addEventListener('click', submitMain);
+
+  // ── Mode pills ─────────────────────────────────────────────────────────────
+  function setMode(mode) {
+    const toIterate = mode === 'iterate';
+    if (toIterate === iterateMode) return;
+    iterateMode = toIterate;
+    document.getElementById('pill-ask').classList.toggle('active', !iterateMode);
+    document.getElementById('pill-iterate').classList.toggle('active', iterateMode);
+
+    if (iterateMode) {
+      app.classList.add('iterate-open');
+      modelName.textContent = 'Haiku 4.5';
+      inputField.placeholder = 'How can I help you today?';
+    } else {
+      app.classList.remove('iterate-open', 'compare-mode');
+      compareMode = false;
+      compareBtn.classList.remove('active');
+      dismissVersionToolbar();
+      clearCtx();
+      modelName.textContent = 'Opus 4.6';
+      inputField.placeholder = 'How can I help you today?';
+    }
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  function submitMain() {
+    const text = inputField.value.trim();
+    if (!text || isStreaming) return;
+
+    document.getElementById('empty-state')?.remove();
+    document.getElementById('ver-empty')?.remove();
+
+    if (messageCount === 0) {
+      convoTitle.textContent = text.length > 38 ? text.slice(0, 38) + '\u2026' : text;
+    }
+    messageCount++;
+
+    addHumanMsg(text);
+    inputField.value = ''; inputField.style.height = 'auto'; sendBtn.disabled = true;
+    const hadCtx = inputCtx.classList.contains('visible');
+    clearCtx();
+
+    if (iterateMode) {
+      isStreaming = true;
+      const label = 'Version ' + (versions.length + 1);
+      const buildMsg = BUILDING_MSGS[buildingIdx++ % BUILDING_MSGS.length];
+      const bCursor = addBuildingMsg(buildMsg);
+      generateVersion(label, () => {
+        bCursor.remove();
+        const confirm = CHAT_CONFIRMS[confirmIdx++ % CHAT_CONFIRMS.length];
+        streamConfirmMsg(confirm);
+      });
+    } else {
+      isStreaming = true;
+      const html = CHAT_RESPONSES[chatRespIdx++ % CHAT_RESPONSES.length];
+      streamChatResponse(html);
+    }
+  }
+
+  // ── Human message ──────────────────────────────────────────────────────────
+  function addHumanMsg(text) {
+    const el = document.createElement('div');
+    el.className = 'msg-human';
+    el.innerHTML = `<div class="human-bubble">${esc(text)}</div>
+      <div class="human-meta"><span class="meta-time">${timeStr()}</span></div>`;
+    msgInner.appendChild(el);
+    scrollBottom();
+  }
+
+  // ── Building message (iterate mode) ───────────────────────────────────────
+  function addBuildingMsg(text) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-claude';
+    const textEl = document.createElement('span');
+    textEl.className = 'claude-building';
+    textEl.textContent = text;
+    const cursor = document.createElement('span');
+    cursor.className = 'stream-cursor';
+    textEl.appendChild(cursor);
+    wrap.appendChild(claudeAvatarSm());
+    wrap.appendChild(textEl);
+    msgInner.appendChild(wrap);
+    scrollBottom();
+    return cursor;
+  }
+
+  // ── Confirm message (after version streams) ────────────────────────────────
+  function streamConfirmMsg(text, onDone) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-claude';
+    const textEl = document.createElement('span');
+    textEl.className = 'claude-short-text';
+    const cursor = document.createElement('span');
+    cursor.className = 'stream-cursor';
+    textEl.appendChild(cursor);
+    wrap.appendChild(claudeAvatarSm());
+    wrap.appendChild(textEl);
+    msgInner.appendChild(wrap);
+    scrollBottom();
+    streamInto(textEl, cursor, esc(text), () => {
+      isStreaming = false;
+      sendBtn.disabled = !inputField.value.trim();
+      if (onDone) onDone();
+    });
+  }
+
+  // ── Standard chat response (Ask mode) ─────────────────────────────────────
+  function streamChatResponse(html) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-claude-wrap';
+    wrap.innerHTML = `
+      <div class="claude-header">
+        ${claudeAvatarMdSVG()}
+        <span class="claude-name">Claude</span>
+      </div>
+      <div class="claude-body"></div>
+      <div class="claude-act-row">
+        <button class="act-btn" title="Copy"><svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M7 2C6.17157 2 5.5 2.67157 5.5 3.5V4H5C3.89543 4 3 4.89543 3 6V16C3 17.1046 3.89543 18 5 18H13C14.1046 18 15 17.1046 15 16V15.5H15.5C16.3284 15.5 17 14.8284 17 14V5.5C17 5.10218 16.842 4.72064 16.5607 4.43934L14.5607 2.43934C14.2794 2.15804 13.8978 2 13.5 2H7ZM7 3H13V5.5C13 6.32843 13.6716 7 14.5 7H16V14C16 14.5523 15.5523 15 15 15H7C6.44772 15 6.5 14.5523 6.5 14V3.5C6.5 3.22386 6.72386 3 7 3Z"/></svg></button>
+        <button class="act-btn" title="Like"><svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.56055 2C11.1381 2 12.3211 3.44332 12.0117 4.99023L11.6094 7H13.8438C15.5431 7 16.836 8.52594 16.5566 10.2021L15.876 14.2842C15.6148 15.8513 14.2586 17 12.6699 17H4.5C3.67157 17 3 16.3284 3 15.5V9.23828C3 8.57996 3.4294 7.99838 4.05859 7.80469L5.19824 7.4541C6.02983 7.15302 6.59327 6.63008 6.89746 5.9541L8.41113 2.58984C8.66235 2.17643 8.97898 2 9.32324 2H9.56055Z"/></svg></button>
+      </div>`;
+    const body   = wrap.querySelector('.claude-body');
+    const cursor = document.createElement('span');
+    cursor.className = 'stream-cursor';
+    body.appendChild(cursor);
+    msgInner.appendChild(wrap);
+    scrollBottom();
+    streamInto(body, cursor, html, () => {
+      isStreaming = false;
+      sendBtn.disabled = !inputField.value.trim();
+    });
+  }
+
+  // ── Generate version ───────────────────────────────────────────────────────
+  function generateVersion(label, onDone) {
+    const id = 'ver-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    versions.push({ id, label, html: '' });
+
+    // Tab
+    const tab = document.createElement('button');
+    tab.className = 'version-tab' + (versions.length === 1 ? ' active' : '');
+    tab.dataset.id = id;
+    tab.innerHTML = `<span class="tab-dot"></span>${label}<button class="tab-close-btn" data-close="${id}"><svg width="9" height="9" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>`;
+    tab.addEventListener('click', e => { if (!e.target.closest('[data-close]')) activateVersion(id); });
+    tab.querySelector('[data-close]').addEventListener('click', e => { e.stopPropagation(); removeVersion(id); });
+    tabsScroll.appendChild(tab);
+
+    // Panel with skeleton
+    const v = VERSION_VARIANTS[variantIdx % VERSION_VARIANTS.length];
+    const panel = document.createElement('div');
+    panel.className = 'version-panel' + (versions.length === 1 ? ' active' : '');
+    panel.dataset.id = id;
+    panel.innerHTML = `
+      <div class="ver-iteration-label">${label}</div>
+      <div class="skeleton-wrap" style="margin-bottom:20px">
+        <div class="skeleton-line" style="width:78%"></div>
+        <div class="skeleton-line" style="width:60%"></div>
+      </div>
+      <div class="skeleton-wrap">
+        <div class="skeleton-line" style="width:96%"></div>
+        <div class="skeleton-line" style="width:89%"></div>
+        <div class="skeleton-line" style="width:93%"></div>
+        <div class="skeleton-line" style="width:82%"></div>
+        <div class="skeleton-line" style="width:71%"></div>
+      </div>
+      <br>
+      <div class="skeleton-wrap">
+        <div class="skeleton-line" style="width:95%"></div>
+        <div class="skeleton-line" style="width:87%"></div>
+        <div class="skeleton-line" style="width:91%"></div>
+        <div class="skeleton-line" style="width:78%"></div>
+        <div class="skeleton-line" style="width:65%"></div>
+      </div>
+      <br>
+      <div class="skeleton-wrap">
+        <div class="skeleton-line" style="width:94%"></div>
+        <div class="skeleton-line" style="width:85%"></div>
+        <div class="skeleton-line" style="width:52%"></div>
+      </div>`;
+    verContent.appendChild(panel);
+    if (versions.length === 1) activateVersion(id);
+
+    setTimeout(() => {
+      const variant = VERSION_VARIANTS[variantIdx++ % VERSION_VARIANTS.length];
+      versions.find(ver => ver.id === id).html = variant.body;
+
+      panel.innerHTML = `
+        <div class="ver-iteration-label">${label}</div>
+        <p class="ver-doc-title">${esc(variant.title)}</p>
+        <p class="ver-doc-subtitle">${esc(variant.subtitle)}</p>
+        <hr class="ver-divider">
+        <div class="version-text" contenteditable="true" spellcheck="false"></div>`;
+
+      const vText = panel.querySelector('.version-text');
+      vText.addEventListener('mouseup', onVersionMouseup);
+
+      const cursor = document.createElement('span');
+      cursor.className = 'stream-cursor';
+      vText.appendChild(cursor);
+
+      streamInto(vText, cursor, variant.body, () => {
+        if (onDone) onDone(id);
+      });
+    }, 1100 + Math.random() * 500);
+  }
+
+  function removeVersion(id) {
+    if (versions.length <= 1) return;
+    versions = versions.filter(v => v.id !== id);
+    tabsScroll.querySelector(`[data-id="${id}"]`)?.remove();
+    verContent.querySelector(`[data-id="${id}"]`)?.remove();
+    if (activeVerId === id) activateVersion(versions[versions.length - 1].id);
+  }
+
+  function activateVersion(id) {
+    activeVerId = id;
+    tabsScroll.querySelectorAll('.version-tab').forEach(t => t.classList.toggle('active', t.dataset.id === id));
+    verContent.querySelectorAll('.version-panel').forEach(p => p.classList.toggle('active', p.dataset.id === id));
+    dismissVersionToolbar();
+  }
+
+  // ── Compare mode ───────────────────────────────────────────────────────────
+  function toggleCompare() {
+    if (versions.length < 2) return;
+    compareMode = !compareMode;
+    app.classList.toggle('compare-mode', compareMode);
+    compareBtn.classList.toggle('active', compareMode);
+  }
+
+  // ── Version text selection ─────────────────────────────────────────────────
+  let vtTimeout;
+  function onVersionMouseup(e) {
+    if (versionToolbar.contains(e.target) || inlineCard.contains(e.target)) return;
+    const el = e.currentTarget;
+    clearTimeout(vtTimeout);
+    vtTimeout = setTimeout(() => checkVersionSelection(el), 25);
+  }
+
+  function checkVersionSelection(vTextEl) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim().length < 2) {
+      dismissVersionToolbar(); return;
+    }
+    const text  = sel.toString().trim();
+    const range = sel.getRangeAt(0);
+    let node = range.commonAncestorContainer;
+    if (node.nodeType === 3) node = node.parentElement;
+    if (!node.closest?.('.version-text')) { dismissVersionToolbar(); return; }
+
+    vtSelectedText = text;
+    vtTargetPanel  = vTextEl.closest('.version-panel');
+
+    const rect = range.getBoundingClientRect();
+    const tbW  = 256;
+    let left = rect.right - tbW;
+    let top  = rect.bottom + 8;
+    left = Math.max(8, Math.min(left, window.innerWidth - tbW - 8));
+    if (top + 60 > window.innerHeight) top = rect.top - 50;
+
+    versionToolbar.style.left = left + 'px';
+    versionToolbar.style.top  = top  + 'px';
+    versionToolbar.classList.add('visible');
+  }
+
+  function dismissVersionToolbar() {
+    versionToolbar.classList.remove('visible');
+    vtSelectedText = '';
+    vtTargetPanel  = null;
+  }
+
+  document.addEventListener('mouseup', e => {
+    if (!versionToolbar.contains(e.target) && !inlineCard.contains(e.target)) {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) dismissVersionToolbar();
+    }
+  }, true);
+
+  // Like / dislike (visual only)
+  document.getElementById('vt-like').addEventListener('click', () => {
+    dismissVersionToolbar();
+    window.getSelection()?.removeAllRanges();
+  });
+  document.getElementById('vt-dislike').addEventListener('click', () => {
+    dismissVersionToolbar();
+    window.getSelection()?.removeAllRanges();
+  });
+
+  // Reply: load selected text into chat input context strip
+  document.getElementById('vt-reply').addEventListener('click', () => {
+    const text = vtSelectedText;
+    dismissVersionToolbar();
+    window.getSelection()?.removeAllRanges();
+    inputCtxText.textContent = text.length > 80 ? text.slice(0, 80) + '\u2026' : text;
+    inputCtx.classList.add('visible');
+    inputField.focus();
+    sendBtn.disabled = !inputField.value.trim() || isStreaming;
+  });
+
+  // Ask: open inline card → submit → context + question in chat → new version
+  document.getElementById('vt-ask').addEventListener('click', () => {
+    const text = vtSelectedText;
+    dismissVersionToolbar();
+    window.getSelection()?.removeAllRanges();
+    icSelectedText = text;
+    openInlineCard(text);
+  });
+
+  // ── Inline card ────────────────────────────────────────────────────────────
+  function openInlineCard(selectedText) {
+    const trunc = selectedText.length > 80 ? selectedText.slice(0, 80) + '\u2026' : selectedText;
+    document.getElementById('ic-ctx-text').textContent = trunc;
+    icTextarea.value = ''; icTextarea.style.height = 'auto';
+    icSend.disabled = true;
+
+    const tbRect = versionToolbar.getBoundingClientRect();
+    let left = tbRect.left;
+    let top  = tbRect.bottom + 8;
+    if (left + 340 > window.innerWidth - 8) left = window.innerWidth - 348;
+    if (top + 160 > window.innerHeight)     top  = tbRect.top - 168;
+    inlineCard.style.left = left + 'px';
+    inlineCard.style.top  = top  + 'px';
+    inlineCard.classList.add('visible');
+    setTimeout(() => icTextarea.focus(), 50);
+  }
+
+  function dismissInlineCard() {
+    inlineCard.classList.remove('visible');
+    icSelectedText = '';
+  }
+
+  icTextarea.addEventListener('input', () => {
+    icTextarea.style.height = 'auto';
+    icTextarea.style.height = Math.min(icTextarea.scrollHeight, 100) + 'px';
+    icSend.disabled = !icTextarea.value.trim();
+  });
+  icTextarea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!icSend.disabled) submitAsk(); }
+  });
+  icSend.addEventListener('click', submitAsk);
+
+  function submitAsk() {
+    const question = icTextarea.value.trim();
+    if (!question || isStreaming) return;
+    const context  = icSelectedText;
+    dismissInlineCard();
+
+    // Add context quote block to chat
+    addContextBlock(context);
+
+    // Add human question bubble
+    addHumanMsg(question);
+    messageCount++;
+
+    // Building message → generate new version
+    isStreaming = true;
+    const label  = 'Version ' + (versions.length + 1);
+    const buildMsg = BUILDING_MSGS[buildingIdx++ % BUILDING_MSGS.length];
+    const bCursor  = addBuildingMsg(buildMsg);
+    generateVersion(label, () => {
+      bCursor.remove();
+      const confirm = CHAT_CONFIRMS[confirmIdx++ % CHAT_CONFIRMS.length];
+      streamConfirmMsg(confirm);
+    });
+  }
+
+  function addContextBlock(text) {
+    const trunc = text.length > 120 ? text.slice(0, 120) + '\u2026' : text;
+    const el = document.createElement('div');
+    el.className = 'msg-ctx-block';
+    el.innerHTML = `<div class="ctx-quote">
+      <div class="ctx-quote-bar"></div>
+      <div class="ctx-quote-text">${esc(trunc)}</div>
+    </div>`;
+    msgInner.appendChild(el);
+    scrollBottom();
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function clearCtx() {
+    inputCtx.classList.remove('visible');
+    inputCtxText.textContent = '';
+  }
+
+  function scrollBottom() { msgWrap.scrollTop = msgWrap.scrollHeight; }
+
+  function timeStr() {
+    return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  const CLAUDE_AVATAR_PATH = `m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z`;
+
+  function claudeAvatarSm() {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    el.setAttribute('class', 'claude-avatar-sm');
+    el.setAttribute('viewBox', '0 0 100 100');
+    el.setAttribute('fill', 'currentColor');
+    el.innerHTML = `<path d="${CLAUDE_AVATAR_PATH}"/>`;
+    return el;
+  }
+
+  function claudeAvatarMdSVG() {
+    return `<svg class="claude-avatar-md" viewBox="0 0 100 100" fill="currentColor"><path d="${CLAUDE_AVATAR_PATH}"/></svg>`;
+  }
+
+  // ── streamInto: character-by-character HTML streaming ─────────────────────
+  function streamInto(container, cursor, html, onDone) {
+    const plainLen = html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').length;
+    let charIdx = 0;
+    function tick() {
+      if (charIdx >= plainLen) { cursor.remove(); onDone(); return; }
+      charIdx = Math.min(charIdx + Math.floor(Math.random() * 4) + 1, plainLen);
+      container.innerHTML = renderUpTo(html, charIdx);
+      container.appendChild(cursor);
+      scrollBottom();
+      setTimeout(tick, Math.random() * 16 + 5);
+    }
+    tick();
+  }
+
+  function renderUpTo(html, target) {
+    let seen = 0, out = '', i = 0;
+    const stack = [];
+    while (i < html.length) {
+      if (html[i] === '<') {
+        const end = html.indexOf('>', i); if (end === -1) break;
+        const tag = html.slice(i, end + 1);
+        out += tag;
+        if (!tag.startsWith('</') && !tag.endsWith('/>')) {
+          const m = tag.match(/^<(\w+)/); if (m) stack.push(m[1]);
+        } else if (tag.startsWith('</')) stack.pop();
+        i = end + 1;
+      } else if (html[i] === '&') {
+        const end = html.indexOf(';', i);
+        if (end !== -1 && end - i <= 8) {
+          if (seen < target) { out += html.slice(i, end + 1); seen++; } else break;
+          i = end + 1;
+        } else {
+          if (seen < target) { out += html[i]; seen++; i++; } else break;
+        }
+      } else {
+        if (seen < target) { out += html[i]; seen++; i++; } else break;
+      }
+    }
+    while (stack.length) out += `</${stack.pop()}>`;
+    return out;
+  }
+
+  // ── New chat ───────────────────────────────────────────────────────────────
+  function newChat() {
+    app.classList.remove('iterate-open', 'compare-mode');
+    iterateMode = false; compareMode = false;
+    document.getElementById('pill-ask').classList.add('active');
+    document.getElementById('pill-iterate').classList.remove('active');
+    compareBtn.classList.remove('active');
+    dismissVersionToolbar(); dismissInlineCard(); clearCtx();
+
+    isStreaming = false; messageCount = 0;
+    chatRespIdx = 0; buildingIdx = 0; confirmIdx = 0; variantIdx = 0;
+    versions = []; activeVerId = null;
+
+    tabsScroll.innerHTML = '';
+    verContent.innerHTML = '<div class="ver-empty" id="ver-empty"><p>Send a message to generate your first version</p></div>';
+
+    msgInner.innerHTML = `<div class="empty-state" id="empty-state">
+      <div class="greeting-row">
+        <svg class="greeting-logo" viewBox="0 0 100 100" fill="currentColor"><path d="${CLAUDE_AVATAR_PATH}"/></svg>
+        <span class="greeting-text">Good afternoon, Rakshit</span>
+      </div>
+    </div>`;
+
+    convoTitle.textContent = 'New conversation';
+    modelName.textContent = 'Opus 4.6';
+    inputField.value = ''; inputField.style.height = 'auto';
+    inputField.placeholder = 'How can I help you today?';
+    sendBtn.disabled = true;
+  }
+</script>
+</body>
+</html>

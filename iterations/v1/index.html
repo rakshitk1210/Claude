@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude</title>
+  <style>
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light-italic.woff2') format('woff2');
+      font-weight: 300; font-style: italic;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular-italic.woff2') format('woff2');
+      font-weight: 400; font-style: italic;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-semibold.woff2') format('woff2');
+      font-weight: 600; font-style: normal;
+    }
+    @font-face {
+      font-family: 'SF Compact Rounded';
+      src: url('../../SF-Compact-Rounded-Regular.otf') format('opentype');
+      font-weight: 400; font-style: normal;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-w: 54px;
+      --bg-sidebar: #1c1917;
+      --bg-main: #f5f4ef;
+      --bg-input: #eceae3;
+      --bg-human: #e8e6df;
+      --text-100: #1c1917;
+      --text-300: #6b6860;
+      --text-400: #9b9892;
+      --text-500: #b5b2ab;
+      --accent: #c15f3c;
+      --border: #dddbd4;
+      --icon-default: #9b9892;
+      --icon-hover: #f5f4ef;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg-main);
+      color: var(--text-100);
+    }
+
+    /* ── App Shell ── */
+    .app { display: flex; height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-sidebar);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0 10px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .sidebar-top {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      flex: 1;
+    }
+
+    .sidebar-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sb-btn {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--icon-default);
+      transition: background 120ms ease, color 120ms ease;
+      position: relative;
+    }
+    .sb-btn:hover { background: rgba(255,255,255,0.08); color: var(--icon-hover); }
+    .sb-btn.active { color: rgba(255,255,255,0.85); }
+
+    .sb-divider {
+      width: 22px; height: 1px;
+      background: rgba(255,255,255,0.07);
+      margin: 5px 0;
+    }
+
+    .user-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #4a4845;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; font-weight: 600;
+      color: rgba(255,255,255,0.75);
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: background 120ms;
+    }
+    .user-avatar:hover { background: #5a5855; }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* ── Top Bar ── */
+    .topbar {
+      height: 46px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--bg-main);
+    }
+
+    .topbar-title {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 14px; font-weight: 500;
+      color: var(--text-100);
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 4px 6px;
+      margin-left: -6px;
+      transition: background 100ms;
+    }
+    .topbar-title:hover { background: rgba(0,0,0,0.05); }
+    .topbar-title svg { color: var(--text-400); flex-shrink: 0; }
+
+    .share-btn {
+      height: 29px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: white;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      color: var(--text-100);
+      transition: background 100ms;
+      display: flex; align-items: center; gap: 5px;
+      font-family: inherit;
+    }
+    .share-btn:hover { background: var(--bg-input); }
+    .share-btn svg { color: var(--text-400); }
+
+    /* ── Messages ── */
+    .messages-wrap {
+      flex: 1;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    .messages-wrap::-webkit-scrollbar { width: 5px; }
+    .messages-wrap::-webkit-scrollbar-track { background: transparent; }
+    .messages-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+    .messages-wrap::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.18); }
+
+    .messages-inner {
+      max-width: 688px;
+      margin: 0 auto;
+      padding: 36px 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* Human message */
+    .msg-human {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .human-bubble {
+      background: var(--bg-human);
+      border-radius: 18px 18px 4px 18px;
+      padding: 10px 15px;
+      font-size: 15px;
+      line-height: 1.55;
+      max-width: 78%;
+      color: var(--text-100);
+      word-break: break-word;
+    }
+
+    .human-meta {
+      display: flex; align-items: center; gap: 10px;
+      padding-right: 2px;
+    }
+
+    .meta-time {
+      font-size: 11px;
+      color: var(--text-400);
+    }
+
+    .action-row {
+      display: flex; align-items: center; gap: 1px;
+      opacity: 0;
+      transition: opacity 140ms;
+    }
+    .msg-human:hover .action-row { opacity: 1; }
+    .msg-claude-wrap:hover .claude-action-row { opacity: 1; }
+
+    .act-btn {
+      width: 28px; height: 28px;
+      border-radius: 6px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-400);
+      transition: background 100ms, color 100ms;
+    }
+    .act-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-100); }
+    .act-btn.copied { color: #2db57e; }
+
+    /* Claude message */
+    .msg-claude-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .claude-header {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .claude-avatar-icon {
+      width: 20px; height: 20px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .claude-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-300);
+    }
+
+    .claude-body {
+      font-family: 'Tiempos Headline', Georgia, 'Times New Roman', serif;
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.78;
+      color: var(--text-100);
+    }
+
+    .claude-body p + p { margin-top: 15px; }
+
+    .claude-body h3 {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.35;
+      margin: 22px 0 8px;
+      color: var(--text-100);
+    }
+
+    .claude-body ul, .claude-body ol {
+      padding-left: 22px;
+      margin: 10px 0;
+    }
+    .claude-body li { margin: 5px 0; }
+
+    .claude-body strong {
+      font-weight: 600;
+    }
+
+    .claude-body em {
+      font-style: italic;
+    }
+
+    .claude-body code {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      background: rgba(0,0,0,0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--text-100);
+    }
+
+    .claude-action-row {
+      display: flex; align-items: center; gap: 1px;
+      margin-top: 14px;
+      opacity: 0;
+      transition: opacity 140ms;
+    }
+
+    /* Streaming cursor */
+    .stream-cursor {
+      display: inline-block;
+      width: 2px; height: 16px;
+      background: var(--text-300);
+      border-radius: 1px;
+      vertical-align: text-bottom;
+      margin-left: 1px;
+      animation: blink 0.85s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Input Area ── */
+    .input-area {
+      padding: 10px 20px 18px;
+      flex-shrink: 0;
+      background: var(--bg-main);
+    }
+
+    .input-wrap {
+      max-width: 688px;
+      margin: 0 auto;
+      background: var(--bg-input);
+      border-radius: 14px;
+      padding: 10px 10px 8px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: box-shadow 150ms;
+    }
+    .input-wrap:focus-within {
+      box-shadow: 0 0 0 1.5px rgba(0,0,0,0.12);
+    }
+
+    .input-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 15px;
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      color: var(--text-100);
+      resize: none; outline: none;
+      line-height: 1.5;
+      min-height: 22px; max-height: 180px;
+      overflow-y: auto;
+    }
+    .input-field::placeholder { color: var(--text-400); }
+    .input-field::-webkit-scrollbar { width: 4px; }
+    .input-field::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 2px; }
+
+    .input-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .input-left, .input-right {
+      display: flex; align-items: center; gap: 3px;
+    }
+
+    .tool-btn {
+      height: 28px; padding: 0 8px;
+      border: none; border-radius: 7px; background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+      color: var(--text-400);
+      font-size: 12.5px; font-weight: 500;
+      font-family: inherit;
+      transition: background 100ms, color 100ms;
+    }
+    .tool-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-100); }
+
+    .model-btn {
+      height: 28px; padding: 0 8px;
+      border: none; border-radius: 7px; background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 3px;
+      color: var(--text-400);
+      font-size: 12.5px; font-weight: 500;
+      font-family: inherit;
+      transition: background 100ms, color 100ms;
+    }
+    .model-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-100); }
+
+    .send-btn {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--text-100);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white;
+      transition: background 100ms, transform 80ms, opacity 150ms;
+      flex-shrink: 0;
+    }
+    .send-btn:hover:not(:disabled) { background: #333; }
+    .send-btn:active:not(:disabled) { transform: scale(0.92); }
+    .send-btn:disabled { background: #c8c5be; cursor: not-allowed; }
+
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #2db57e; flex-shrink: 0;
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%;
+      gap: 16px;
+      color: var(--text-400);
+      pointer-events: none;
+    }
+    .empty-state svg { opacity: 0.25; }
+    .empty-state p { font-size: 14px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+
+      <!-- Sidebar toggle -->
+      <button class="sb-btn active" title="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg>
+      </button>
+
+      <!-- New chat -->
+      <button class="sb-btn" title="New chat" onclick="newChat()">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+      </button>
+
+      <!-- Search -->
+      <button class="sb-btn" title="Search">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M8.5 2C12.0899 2 15 4.91015 15 8.5C15 10.1149 14.4094 11.5908 13.4346 12.7275L17.8535 17.1465L17.918 17.2246C18.0461 17.4187 18.0244 17.6827 17.8535 17.8535C17.6827 18.0244 17.4187 18.0461 17.2246 17.918L17.1465 17.8535L12.7275 13.4346C11.5908 14.4094 10.1149 15 8.5 15C4.91015 15 2 12.0899 2 8.5C2 4.91015 4.91015 2 8.5 2ZM8.5 3C5.46243 3 3 5.46243 3 8.5C3 11.5376 5.46243 14 8.5 14C11.5376 14 14 11.5376 14 8.5C14 5.46243 11.5376 3 8.5 3Z"/></svg>
+      </button>
+
+      <!-- Library -->
+      <button class="sb-btn" title="Library">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path class="group-hover:-translate-y-[1.4px] group-hover:translate-x-[0.5px] group-hover:rotate-3 transition group-active:translate-y-0" d="M16.0004 5.5C16.0004 5.224 15.7764 5.00024 15.5004 5H4.50043C4.22428 5 4.00043 5.22386 4.00043 5.5C4.00043 5.77614 4.22428 6 4.50043 6H15.5004C15.7764 5.99976 16.0004 5.776 16.0004 5.5Z"/><path d="M16.0004 5.5C16.0004 5.224 15.7764 5.00024 15.5004 5H4.50043C4.22428 5 4.00043 5.22386 4.00043 5.5C4.00043 5.77614 4.22428 6 4.50043 6H15.5004C15.7764 5.99976 16.0004 5.776 16.0004 5.5Z"/><path d="M14.5004 3.5C14.5004 3.224 14.2764 3.00024 14.0004 3H6.00043C5.72428 3 5.50043 3.22386 5.50043 3.5C5.50043 3.77614 5.72428 4 6.00043 4H14.0004C14.2764 3.99976 14.5004 3.776 14.5004 3.5Z"/><path d="M15.8198 7C16.6885 7.00025 17.3624 7.73158 17.3178 8.57617L17.2993 8.74707L16.1332 15.7471C16.0126 16.4699 15.3865 16.9996 14.6538 17H5.34711C4.6142 16.9998 3.98833 16.47 3.86762 15.7471L2.7016 8.74707C2.54922 7.83277 3.25418 7 4.18109 7H15.8198ZM4.18109 8C3.87216 8 3.63722 8.27731 3.68793 8.58203L4.85394 15.582C4.89413 15.8229 5.10291 15.9998 5.34711 16H14.6538C14.8978 15.9996 15.1068 15.8228 15.1469 15.582L16.3129 8.58203L16.3188 8.46973C16.3036 8.21259 16.0899 8.00023 15.8198 8H4.18109Z"/></svg>
+      </button>
+
+      <div class="sb-divider"></div>
+
+      <!-- Starred -->
+      <button class="sb-btn" title="Starred">
+        <svg width="20" height="20" viewBox="0 0 256 256" fill="currentColor"><path d="M234.29,114.85l-45,38.83L203,211.75a16.4,16.4,0,0,1-6.87,17.67,15.86,15.86,0,0,1-18.62-.8L128,193.36,78.5,228.62a15.87,15.87,0,0,1-18.62.8A16.4,16.4,0,0,1,53,211.75l13.73-58.07-45-38.83A16.46,16.46,0,0,1,16,97.1,15.86,15.86,0,0,1,28.85,86.92l59.07-4.92,22.93-56.38a15.92,15.92,0,0,1,29.3,0l22.93,56.38,59.07,4.92A15.86,15.86,0,0,1,235,97.1,16.46,16.46,0,0,1,234.29,114.85Z" opacity="0.3"/><path d="M239.2,97.29a15.89,15.89,0,0,0-13-10.78l-59.06-4.92L144.27,26.8a15.91,15.91,0,0,0-29.3,0L92.86,81.59,33.8,86.51A15.89,15.89,0,0,0,20.8,97.29,16.46,16.46,0,0,0,25.95,115l45,38.83L57.17,211.8a16.38,16.38,0,0,0,6.86,17.67,15.84,15.84,0,0,0,18.62-.8L128,193.38l45.35,35.29a15.86,15.86,0,0,0,18.62.8,16.38,16.38,0,0,0,6.86-17.67l-13.78-58-45-38.83A16.46,16.46,0,0,0,239.2,97.29Z"/></svg>
+      </button>
+
+      <!-- Projects -->
+      <button class="sb-btn" title="Projects">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M12.5 3C13.3284 3 14 3.67157 14 4.5V6H14.5C16.433 6 18 7.567 18 9.5V15.5C18 16.3284 17.3284 17 16.5 17H3.5C2.72334 17 2.08461 16.4097 2.00781 15.6533L2 15.5V9.5C2 7.567 3.567 6 5.5 6H6V4.5C6 3.67157 6.67157 3 7.5 3H12.5ZM3 15.5L3.00977 15.6006C3.05629 15.8286 3.25829 16 3.5 16H16.5C16.7761 16 17 15.7761 17 15.5V12H13V12.5C13 12.7761 12.7761 13 12.5 13C12.2239 13 12 12.7761 12 12.5V12H8V12.5C8 12.7761 7.77614 13 7.5 13C7.22386 13 7 12.7761 7 12.5V12H3V15.5ZM5.5 7C4.11929 7 3 8.11929 3 9.5V11H7V10.5C7 10.2239 7.22386 10 7.5 10C7.77614 10 8 10.2239 8 10.5V11H12V10.5C12 10.2239 12.2239 10 12.5 10C12.7761 10 13 10.2239 13 10.5V11H17V9.5C17 8.11929 15.8807 7 14.5 7H5.5ZM7.5 4C7.22386 4 7 4.22386 7 4.5V6H13V4.5C13 4.22386 12.7761 4 12.5 4H7.5Z"/></svg>
+      </button>
+
+      <!-- Code -->
+      <button class="sb-btn" title="Code">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M11.6318 4.01757C11.898 4.09032 12.055 4.36555 11.9824 4.63183L8.98242 15.6318C8.90966 15.8981 8.63449 16.0551 8.36816 15.9824C8.10193 15.9097 7.94495 15.6345 8.01758 15.3682L11.0176 4.36816C11.0904 4.102 11.3656 3.94497 11.6318 4.01757Z"/><path d="M13.124 6.17089C13.3059 5.96325 13.6213 5.9423 13.8291 6.12402L17.8291 9.62402L17.9014 9.70215C17.9647 9.78754 18 9.89182 18 10C18 10.1441 17.9375 10.281 17.8291 10.376L13.8291 13.876L13.7471 13.9346C13.5449 14.0498 13.2833 14.011 13.124 13.8291C12.9649 13.6472 12.9606 13.3824 13.1016 13.1973L13.1709 13.124L16.7412 10L13.1709 6.87597C12.9632 6.69411 12.9422 6.37866 13.124 6.17089Z"/><path d="M6.25293 6.06542C6.45509 5.95025 6.71675 5.98908 6.87598 6.17089C7.03513 6.35279 7.03933 6.6176 6.89844 6.80273L6.8291 6.87597L3.25879 10L6.8291 13.124C7.03682 13.3059 7.05771 13.6213 6.87598 13.8291C6.69413 14.0369 6.37869 14.0578 6.1709 13.876L2.1709 10.376L2.09863 10.2979C2.03528 10.2124 2 10.1082 2 10C2.00005 9.85591 2.06247 9.71893 2.1709 9.62402L6.1709 6.12402L6.25293 6.06542Z"/></svg>
+      </button>
+
+    </div>
+
+    <div class="sidebar-bottom">
+      <!-- Download -->
+      <button class="sb-btn" title="Download">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V12.1855L13.626 8.66797C13.8094 8.46166 14.1256 8.44275 14.332 8.62598C14.5383 8.80936 14.5573 9.12563 14.374 9.33203L10.374 13.832L10.2949 13.9033C10.21 13.9654 10.107 14 10 14C9.85718 14 9.72086 13.9388 9.62598 13.832L5.62598 9.33203L5.56738 9.25C5.45079 9.04872 5.48735 8.78653 5.66797 8.62598C5.84854 8.46567 6.1127 8.46039 6.29883 8.59961L6.37402 8.66797L9.5 12.1855V3.5C9.5 3.22386 9.72386 3 10 3Z"/><path d="M3.5 13C3.22386 13 3 13.2239 3 13.5V15.5C3 16.3284 3.67157 17 4.5 17H10V16H4.5C4.22386 16 4 15.7761 4 15.5V13.5C4 13.2239 3.77614 13 3.5 13Z"/><path d="M16.5 13C16.7761 13 17 13.2239 17 13.5V15.5C17 16.3284 16.3284 17 15.5 17H10V16H15.5C15.7761 16 16 15.7761 16 15.5V13.5C16 13.2239 16.2239 13 16.5 13Z"/></svg>
+      </button>
+
+      <!-- User avatar -->
+      <div class="user-avatar" title="Profile">RK</div>
+    </div>
+  </aside>
+
+  <!-- ── Main Area ── -->
+  <main class="main">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-title" id="convo-title-wrap">
+        <span id="convo-title">New conversation</span>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835L10.2939 12.9053C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477L5.0682 7.75273C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z"/></svg>
+      </div>
+      <button class="share-btn">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V9.5H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+        Share
+      </button>
+    </header>
+
+    <!-- Messages -->
+    <div class="messages-wrap" id="messages-wrap">
+      <div class="messages-inner" id="messages-inner">
+
+        <!-- Empty state shown before first message -->
+        <div class="empty-state" id="empty-state" style="height: calc(100vh - 200px);">
+          <svg width="40" height="40" viewBox="0 0 100 100" fill="currentColor">
+            <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+          </svg>
+          <p>How can I help you today?</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea
+          class="input-field"
+          id="input-field"
+          placeholder="Reply to Claude…"
+          rows="1"
+        ></textarea>
+        <div class="input-toolbar">
+          <div class="input-left">
+            <button class="tool-btn" title="Attach">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+            </button>
+          </div>
+          <div class="input-right">
+            <button class="model-btn" title="Model">
+              Opus 4.5 Extended
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835L10.2939 12.9053C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477L5.0682 7.75273C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z"/></svg>
+            </button>
+            <!-- Voice -->
+            <button class="tool-btn" title="Voice input">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2C11.6569 2 13 3.34315 13 5V10C13 11.6569 11.6569 13 10 13C8.34315 13 7 11.6569 7 10V5C7 3.34315 8.34315 2 10 2ZM10 3C8.89543 3 8 3.89543 8 5V10C8 11.1046 8.89543 12 10 12C11.1046 12 12 11.1046 12 10V5C12 3.89543 11.1046 3 10 3ZM5 9.5C5.27614 9.5 5.5 9.72386 5.5 10C5.5 12.4853 7.51472 14.5 10 14.5C12.4853 14.5 14.5 12.4853 14.5 10C14.5 9.72386 14.7239 9.5 15 9.5C15.2761 9.5 15.5 9.72386 15.5 10C15.5 12.9409 13.3328 15.3755 10.5 15.9291V17.5H12.5C12.7761 17.5 13 17.7239 13 18C13 18.2761 12.7761 18.5 12.5 18.5H7.5C7.22386 18.5 7 18.2761 7 18C7 17.7239 7.22386 17.5 7.5 17.5H9.5V15.9291C6.67224 15.3755 4.5 12.9409 4.5 10C4.5 9.72386 4.72386 9.5 5 9.5Z"/></svg>
+            </button>
+            <div class="status-dot"></div>
+            <button class="send-btn" id="send-btn" disabled title="Send">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const ITERATION = { version: "v1", focus: "Baseline Claude UI", date: "2026-03-17" };
+
+  // ── Random responses ──────────────────────────────────────────────
+  const RESPONSES = [
+    {
+      html: `<p>That's a great question. The short answer is that it depends heavily on context — but let me give you a more useful breakdown.</p>
+<p>The most important factor here is <strong>how the system handles state</strong>. If you're building something stateless, you can often get away with a simpler architecture. But once you introduce persistence, you need to think carefully about where that state lives and who owns it.</p>
+<h3>Three things worth considering</h3>
+<ul>
+<li><strong>Latency vs. consistency tradeoffs</strong> — optimizing for one typically costs the other</li>
+<li><strong>Failure modes</strong> — what happens when a component goes down? Is the degradation graceful?</li>
+<li><strong>Operational complexity</strong> — the best architecture is one your team can actually reason about under pressure</li>
+</ul>
+<p>My instinct would be to start with the simplest thing that could work, measure where the real bottlenecks are, and only then reach for more complexity. Premature optimization in system design is just as costly as in code.</p>
+<p>What's the rough scale you're expecting? That would help me give more concrete guidance.</p>`
+    },
+    {
+      html: `<p>The core tension you're describing is one of the oldest in this field — and honestly, most attempts to resolve it try to paper over it rather than address the underlying structure.</p>
+<p>Here's the thing: <em>iteration</em> and <em>linearity</em> are in fundamental conflict when your primary interface is a chat thread. Every message appends. Nothing is ever truly revised in place. So what you end up with is a transcript of a conversation about a document, not the document itself.</p>
+<p>The analogy I find useful is the difference between a <strong>conversation</strong> and a <strong>workspace</strong>. A conversation is great for exploration and disambiguation. A workspace is where you actually build things. The mistake is trying to use one for both jobs.</p>
+<h3>What would actually help</h3>
+<ul>
+<li>Separating the <em>artifact</em> from the <em>thread</em> — the output should be a first-class object, not buried in scroll</li>
+<li>Making versions explicit and navigable, not implicit in the message history</li>
+<li>Allowing targeted edits to specific sections without resubmitting the whole context</li>
+</ul>
+<p>None of this is technically hard. It's mostly a product design problem masquerading as an AI problem.</p>`
+    },
+    {
+      html: `<p>Let me think through this carefully, because there are a few different things going on.</p>
+<p>At the surface level, this looks like a straightforward <strong>information retrieval</strong> problem. But if you look at the failure cases — the places where people get stuck or give up — it's almost always because the system doesn't have a good model of <em>what the user was trying to accomplish</em>, only what they literally asked for.</p>
+<p>This is the classic gap between intent and instruction. Users are remarkably good at knowing what they want. They're often quite bad at specifying it precisely in a single prompt. And current systems have no way to accumulate understanding across turns.</p>
+<p>A few approaches that address this more directly:</p>
+<ol>
+<li><strong>Progressive refinement</strong> — start broad, let the user steer iteratively rather than demanding precision upfront</li>
+<li><strong>Constraint capture</strong> — when the user rejects something, treat that as a constraint to preserve, not just feedback to acknowledge</li>
+<li><strong>Explicit anchoring</strong> — let users mark specific parts as "keep this exactly" so the system knows what's off-limits</li>
+</ol>
+<p>The mental model shift is from <em>request-response</em> to <em>collaborative sculpting</em>. Harder to build, but much closer to how people actually think about refinement.</p>`
+    },
+    {
+      html: `<p>Honestly? Most of what passes for "best practices" in this space is just recency bias — people pattern-matching to whatever shipped last quarter at a large company.</p>
+<p>The things that actually hold up over time tend to be the boring fundamentals:</p>
+<ul>
+<li>Clear ownership of each component's behavior and failure modes</li>
+<li>Observability built in from the start, not retrofitted</li>
+<li>Interfaces that are narrow enough to be replaceable</li>
+</ul>
+<p>The parts that age poorly are usually the ones that optimized for a very specific constraint at a specific moment in time — a particular scale, a particular team structure, a particular set of assumptions about usage patterns that turned out to be wrong.</p>
+<p>I'd spend less time asking "what's the right architecture" and more time asking "what are the assumptions baked into each approach, and how confident am I that those assumptions hold for my situation?" That framing tends to surface the real tradeoffs much faster.</p>`
+    },
+    {
+      html: `<p>There's something interesting buried in how you've framed this. You're treating the problem as primarily a <em>technical</em> one — how do we build a better version of this system? But I suspect the harder problem is the <em>interaction model</em>.</p>
+<p>Think about what "refinement" actually requires from a user. They need to:</p>
+<ol>
+<li>Evaluate what they got against what they wanted</li>
+<li>Identify specifically what's wrong and why</li>
+<li>Communicate that gap to the system</li>
+<li>Verify the next output addresses it without introducing new problems</li>
+</ol>
+<p>That's four non-trivial cognitive steps, compressed into a single text box. And the current interface gives users almost no affordances to do any of them well — no way to annotate, no way to compare, no way to preserve what's working while changing what isn't.</p>
+<p><strong>The result:</strong> users either exit early (one message, done) or invest huge amounts of effort in increasingly elaborate prompts trying to hold all the context in their head.</p>
+<p>Fixing this isn't about better models. It's about building a better interaction layer around the model that already exists.</p>`
+    },
+    {
+      html: `<p>Good question — and the answer is more nuanced than most comparisons suggest.</p>
+<p>The key variable isn't which approach is "better" in the abstract. It's <strong>what you're optimizing for</strong> and at what point in the product's lifecycle.</p>
+<p>Early on, speed of iteration matters more than almost anything else. The cost of getting the architecture wrong is low because you can change it. The cost of building the wrong thing quickly is catastrophic. So you want the simplest, most legible structure possible.</p>
+<p>Later, once you have real usage data and understand where the actual load is, you can make informed decisions about where to invest in more sophisticated design. But those decisions should be driven by evidence, not by what seemed elegant upfront.</p>
+<h3>A useful heuristic</h3>
+<p>If you can't point to a specific, observed problem that the more complex approach solves, you probably don't need it yet. Architecture that anticipates hypothetical scale is often just complexity that makes the present harder in exchange for a future that may never arrive.</p>
+<p>What specific constraints are you working within? That context would help me give you a more grounded recommendation.</p>`
+    }
+  ];
+
+  let responseIndex = 0;
+  let isStreaming = false;
+  let streamTimer = null;
+  let messageCount = 0;
+
+  // ── DOM refs ──────────────────────────────────────────────────────
+  const inputField = document.getElementById('input-field');
+  const sendBtn = document.getElementById('send-btn');
+  const messagesInner = document.getElementById('messages-inner');
+  const messagesWrap = document.getElementById('messages-wrap');
+  const emptyState = document.getElementById('empty-state');
+  const convoTitle = document.getElementById('convo-title');
+
+  // ── Auto-resize textarea ──────────────────────────────────────────
+  inputField.addEventListener('input', () => {
+    inputField.style.height = 'auto';
+    inputField.style.height = Math.min(inputField.scrollHeight, 180) + 'px';
+    sendBtn.disabled = inputField.value.trim() === '' || isStreaming;
+  });
+
+  // ── Keyboard submit ───────────────────────────────────────────────
+  inputField.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!sendBtn.disabled) submit();
+    }
+  });
+
+  sendBtn.addEventListener('click', submit);
+
+  // ── Submit ────────────────────────────────────────────────────────
+  function submit() {
+    const text = inputField.value.trim();
+    if (!text || isStreaming) return;
+
+    // Remove empty state
+    if (emptyState) emptyState.remove();
+
+    // Update conversation title from first message
+    if (messageCount === 0) {
+      convoTitle.textContent = text.length > 42 ? text.slice(0, 42) + '…' : text;
+    }
+    messageCount++;
+
+    // Add human message
+    addHumanMessage(text);
+
+    // Clear input
+    inputField.value = '';
+    inputField.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    // Stream Claude response
+    const response = RESPONSES[responseIndex % RESPONSES.length];
+    responseIndex++;
+    streamResponse(response.html);
+  }
+
+  // ── Human message ─────────────────────────────────────────────────
+  function addHumanMessage(text) {
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    const el = document.createElement('div');
+    el.className = 'msg-human';
+    el.innerHTML = `
+      <div class="human-bubble">${escapeHtml(text)}</div>
+      <div class="human-meta">
+        <div class="action-row">
+          <button class="act-btn" title="Retry" onclick="retryMessage(this)">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.3857 2.50977C14.3486 2.71054 17.5 5.98724 17.5 10C17.5 14.1421 14.1421 17.5 10 17.5C5.85786 17.5 2.5 14.1421 2.5 10C2.5 7.54619 3.67878 5.3677 5.49902 4H3C2.72386 4 2.5 3.77614 2.5 3.5C2.5 3.22386 2.72386 3 3 3H6.5C6.63261 3 6.75975 3.05272 6.85352 3.14648C6.92392 3.21689 6.97106 3.30611 6.99023 3.40234L7 3.5V7C7 7.27614 6.77614 7.5 6.5 7.5C6.22386 7.5 6 7.27614 6 7V4.87891C4.4782 6.06926 3.5 7.91979 3.5 10C3.5 13.5899 6.41015 16.5 10 16.5C13.5899 16.5 16.5 13.5899 16.5 10C16.5 6.5225 13.7691 3.68312 10.335 3.50879L10 3.5L9.89941 3.49023C9.67145 3.44371 9.5 3.24171 9.5 3C9.5 2.72386 9.72386 2.5 10 2.5L10.3857 2.50977Z"/></svg>
+          </button>
+          <button class="act-btn" title="Edit">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.72821 2.87934C10.0318 2.10869 10.9028 1.72933 11.6735 2.03266L14.4655 3.13226C15.236 3.43593 15.6145 4.30697 15.3112 5.07758L11.3903 15.0307C11.2954 15.2717 11.1394 15.4835 10.9391 15.6459L10.8513 15.7123L7.7077 17.8979C7.29581 18.1843 6.73463 17.9917 6.57294 17.5356L6.54657 17.4409L5.737 13.6987C5.67447 13.4092 5.69977 13.107 5.80829 12.8315L9.72821 2.87934Z"/></svg>
+          </button>
+          <button class="act-btn copy-btn" title="Copy" onclick="copyMessage(this, '${escapeForAttr(text)}')">
+            <svg class="copy-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M7 2C6.17157 2 5.5 2.67157 5.5 3.5V4H5C3.89543 4 3 4.89543 3 6V16C3 17.1046 3.89543 18 5 18H13C14.1046 18 15 17.1046 15 16V15.5H15.5C16.3284 15.5 17 14.8284 17 14V5.5C17 5.10218 16.842 4.72064 16.5607 4.43934L14.5607 2.43934C14.2794 2.15804 13.8978 2 13.5 2H7ZM13.5 3H7C6.72386 3 6.5 3.22386 6.5 3.5V4H13.5C13.7761 4 14 3.77614 14 3.5V3H13.5ZM14 4.70711L15.2929 6H14.5C14.2239 6 14 5.77614 14 5.5V4.70711ZM5 5H5.5V14C5.5 14.8284 6.17157 15.5 7 15.5H14V16C14 16.5523 13.5523 17 13 17H5C4.44772 17 4 16.5523 4 16V6C4 5.44772 4.44772 5 5 5ZM7 5H13V5.5C13 6.32843 13.6716 7 14.5 7H16V14C16 14.5523 15.5523 15 15 15H7C6.44772 15 6.5 14.5523 6.5 14V5.5C6.5 5.22386 6.72386 5 7 5Z"/></svg>
+          </button>
+        </div>
+        <span class="meta-time">${time}</span>
+      </div>
+    `;
+    messagesInner.appendChild(el);
+    scrollToBottom();
+  }
+
+  // ── Stream Claude response ────────────────────────────────────────
+  function streamResponse(html) {
+    isStreaming = true;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-claude-wrap';
+
+    const header = document.createElement('div');
+    header.className = 'claude-header';
+    header.innerHTML = `
+      <svg class="claude-avatar-icon" viewBox="0 0 100 100" fill="currentColor">
+        <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+      </svg>
+      <span class="claude-name">Claude</span>
+    `;
+
+    const body = document.createElement('div');
+    body.className = 'claude-body';
+
+    const cursor = document.createElement('span');
+    cursor.className = 'stream-cursor';
+    body.appendChild(cursor);
+
+    const actionRow = document.createElement('div');
+    actionRow.className = 'claude-action-row';
+    actionRow.innerHTML = `
+      <button class="act-btn copy-response-btn" title="Copy response">
+        <svg class="copy-icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M7 2C6.17157 2 5.5 2.67157 5.5 3.5V4H5C3.89543 4 3 4.89543 3 6V16C3 17.1046 3.89543 18 5 18H13C14.1046 18 15 17.1046 15 16V15.5H15.5C16.3284 15.5 17 14.8284 17 14V5.5C17 5.10218 16.842 4.72064 16.5607 4.43934L14.5607 2.43934C14.2794 2.15804 13.8978 2 13.5 2H7ZM13.5 3H7C6.72386 3 6.5 3.22386 6.5 3.5V4H13.5C13.7761 4 14 3.77614 14 3.5V3H13.5ZM14 4.70711L15.2929 6H14.5C14.2239 6 14 5.77614 14 5.5V4.70711ZM5 5H5.5V14C5.5 14.8284 6.17157 15.5 7 15.5H14V16C14 16.5523 13.5523 17 13 17H5C4.44772 17 4 16.5523 4 16V6C4 5.44772 4.44772 5 5 5ZM7 5H13V5.5C13 6.32843 13.6716 7 14.5 7H16V14C16 14.5523 15.5523 15 15 15H7C6.44772 15 6.5 14.5523 6.5 14V5.5C6.5 5.22386 6.72386 5 7 5Z"/></svg>
+      </button>
+      <button class="act-btn" title="Regenerate">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.3857 2.50977C14.3486 2.71054 17.5 5.98724 17.5 10C17.5 14.1421 14.1421 17.5 10 17.5C5.85786 17.5 2.5 14.1421 2.5 10C2.5 7.54619 3.67878 5.3677 5.49902 4H3C2.72386 4 2.5 3.77614 2.5 3.5C2.5 3.22386 2.72386 3 3 3H6.5C6.63261 3 6.75975 3.05272 6.85352 3.14648C6.92392 3.21689 6.97106 3.30611 6.99023 3.40234L7 3.5V7C7 7.27614 6.77614 7.5 6.5 7.5C6.22386 7.5 6 7.27614 6 7V4.87891C4.4782 6.06926 3.5 7.91979 3.5 10C3.5 13.5899 6.41015 16.5 10 16.5C13.5899 16.5 16.5 13.5899 16.5 10C16.5 6.5225 13.7691 3.68312 10.335 3.50879L10 3.5L9.89941 3.49023C9.67145 3.44371 9.5 3.24171 9.5 3C9.5 2.72386 9.72386 2.5 10 2.5L10.3857 2.50977Z"/></svg>
+      </button>
+      <button class="act-btn" title="Thumbs up">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.56055 2C11.1381 2.00009 12.3211 3.44332 12.0117 4.99023L11.6094 7H13.8438C15.5431 7 16.836 8.52594 16.5566 10.2021L15.876 14.2842C15.6148 15.8513 14.2586 17 12.6699 17H4.5C3.67157 17 3 16.3284 3 15.5V9.23828C3.00013 8.57996 3.4294 7.99838 4.05859 7.80469L5.19824 7.4541L5.33789 7.40723C6.02983 7.15302 6.59327 6.63008 6.89746 5.9541L8.41113 2.58984L8.48047 2.46094C8.66235 2.17643 8.97898 2.00002 9.32324 2H9.56055Z"/></svg>
+      </button>
+      <button class="act-btn" title="Thumbs down">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M12.6699 3C14.2586 3 15.6148 4.14871 15.876 5.71582L16.5566 9.79785C16.836 11.4741 15.5431 13 13.8438 13H11.6094L12.0117 15.0098C12.3211 16.5567 11.1381 17.9999 9.56055 18H9.32324C8.97898 18 8.66235 17.8236 8.48047 17.5391L8.41113 17.4102L6.89746 14.0459C6.59327 13.3699 6.02983 12.847 5.33789 12.5928L5.19824 12.5459L4.05859 12.1953C3.4294 12.0016 3.00013 11.42 3 10.7617V4.5C3 3.67157 3.67157 3 4.5 3H12.6699Z"/></svg>
+      </button>
+    `;
+
+    wrapper.appendChild(header);
+    wrapper.appendChild(body);
+    wrapper.appendChild(actionRow);
+    messagesInner.appendChild(wrapper);
+    scrollToBottom();
+
+    // Wire up copy response button
+    actionRow.querySelector('.copy-response-btn').addEventListener('click', function() {
+      const text = body.innerText;
+      copyToClipboard(text, this);
+    });
+
+    // Parse HTML into a flat sequence of characters + tags for streaming
+    const plainText = htmlToStreamable(html);
+    let charIndex = 0;
+    const totalChars = plainText.length;
+
+    // Speed: faster at start, slightly variable
+    function getDelay() {
+      return Math.random() * 18 + 6;
+    }
+
+    function tick() {
+      if (charIndex >= totalChars) {
+        // Done — remove cursor, show actions
+        cursor.remove();
+        isStreaming = false;
+        sendBtn.disabled = inputField.value.trim() === '';
+        return;
+      }
+
+      // Stream in chunks for speed
+      const chunkSize = Math.floor(Math.random() * 4) + 1;
+      charIndex = Math.min(charIndex + chunkSize, totalChars);
+
+      // Render parsed content up to charIndex
+      body.innerHTML = renderUpTo(html, charIndex);
+      body.appendChild(cursor);
+
+      scrollToBottom();
+      streamTimer = setTimeout(tick, getDelay());
+    }
+
+    tick();
+  }
+
+  // ── Streaming text renderer ───────────────────────────────────────
+  function htmlToStreamable(html) {
+    // Strip HTML tags to get raw text length for streaming progress
+    return html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ');
+  }
+
+  function renderUpTo(html, targetChars) {
+    let textSeen = 0;
+    let result = '';
+    let i = 0;
+    const len = html.length;
+    let tagStack = [];
+
+    while (i < len) {
+      if (html[i] === '<') {
+        // Find end of tag
+        const end = html.indexOf('>', i);
+        if (end === -1) break;
+        const tag = html.slice(i, end + 1);
+        result += tag;
+        // Track open/close
+        if (!tag.startsWith('</') && !tag.endsWith('/>')) {
+          const m = tag.match(/^<(\w+)/);
+          if (m) tagStack.push(m[1]);
+        } else if (tag.startsWith('</')) {
+          tagStack.pop();
+        }
+        i = end + 1;
+      } else if (html[i] === '&') {
+        // HTML entity
+        const end = html.indexOf(';', i);
+        if (end !== -1 && end - i <= 8) {
+          if (textSeen < targetChars) {
+            result += html.slice(i, end + 1);
+            textSeen++;
+          } else {
+            break;
+          }
+          i = end + 1;
+        } else {
+          if (textSeen < targetChars) {
+            result += html[i];
+            textSeen++;
+          } else {
+            break;
+          }
+          i++;
+        }
+      } else {
+        if (textSeen < targetChars) {
+          result += html[i];
+          textSeen++;
+          i++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // Close any open tags
+    while (tagStack.length > 0) {
+      result += `</${tagStack.pop()}>`;
+    }
+
+    return result;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────
+  function scrollToBottom() {
+    messagesWrap.scrollTop = messagesWrap.scrollHeight;
+  }
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function escapeForAttr(str) {
+    return str.replace(/'/g, "\\'").replace(/\n/g, '\\n');
+  }
+
+  function copyToClipboard(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.classList.add('copied');
+      const icon = btn.querySelector('.copy-icon');
+      if (icon) {
+        icon.innerHTML = `<path d="M16.5607 5.43934C16.842 5.72064 17 6.10218 17 6.5V16C17 17.1046 16.1046 18 15 18H5C3.89543 18 3 17.1046 3 16V4C3 2.89543 3.89543 2 5 2H12.5C12.8978 2 13.2794 2.15804 13.5607 2.43934L16.5607 5.43934ZM8.35355 12.6464L6.35355 10.6464C6.15829 10.4512 5.84171 10.4512 5.64645 10.6464C5.45118 10.8417 5.45118 11.1583 5.64645 11.3536L8.14645 13.8536C8.34171 14.0488 8.65829 14.0488 8.85355 13.8536L14.3536 8.35355C14.5488 8.15829 14.5488 7.84171 14.3536 7.64645C14.1583 7.45118 13.8417 7.45118 13.6464 7.64645L8.35355 12.6464Z"/>`;
+      }
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        if (icon) {
+          icon.innerHTML = `<path d="M7 2C6.17157 2 5.5 2.67157 5.5 3.5V4H5C3.89543 4 3 4.89543 3 6V16C3 17.1046 3.89543 18 5 18H13C14.1046 18 15 17.1046 15 16V15.5H15.5C16.3284 15.5 17 14.8284 17 14V5.5C17 5.10218 16.842 4.72064 16.5607 4.43934L14.5607 2.43934C14.2794 2.15804 13.8978 2 13.5 2H7ZM13.5 3H7C6.72386 3 6.5 3.22386 6.5 3.5V4H13.5C13.7761 4 14 3.77614 14 3.5V3H13.5ZM14 4.70711L15.2929 6H14.5C14.2239 6 14 5.77614 14 5.5V4.70711ZM5 5H5.5V14C5.5 14.8284 6.17157 15.5 7 15.5H14V16C14 16.5523 13.5523 17 13 17H5C4.44772 17 4 16.5523 4 16V6C4 5.44772 4.44772 5 5 5ZM7 5H13V5.5C13 6.32843 13.6716 7 14.5 7H16V14C16 14.5523 15.5523 15 15 15H7C6.44772 15 6.5 14.5523 6.5 14V5.5C6.5 5.22386 6.72386 5 7 5Z"/>`;
+        }
+      }, 1800);
+    });
+  }
+
+  function copyMessage(btn, text) {
+    copyToClipboard(text, btn);
+  }
+
+  function newChat() {
+    if (streamTimer) clearTimeout(streamTimer);
+    isStreaming = false;
+    messagesInner.innerHTML = `
+      <div class="empty-state" id="empty-state" style="height: calc(100vh - 200px);">
+        <svg width="40" height="40" viewBox="0 0 100 100" fill="currentColor">
+          <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+        </svg>
+        <p>How can I help you today?</p>
+      </div>
+    `;
+    convoTitle.textContent = 'New conversation';
+    inputField.value = '';
+    inputField.style.height = 'auto';
+    sendBtn.disabled = true;
+    messageCount = 0;
+  }
+
+  function retryMessage(btn) {
+    // Find the bubble text and resubmit
+    const bubble = btn.closest('.msg-human').querySelector('.human-bubble');
+    if (bubble && !isStreaming) {
+      inputField.value = bubble.textContent;
+      inputField.dispatchEvent(new Event('input'));
+    }
+  }
+</script>
+</body>
+</html>

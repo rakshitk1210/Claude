@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude UI Lab</title>
+  <style>
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('Test Tiempos Headline/test-tiempos-headline-semibold.woff2') format('woff2');
+      font-weight: 600; font-style: normal;
+    }
+    @font-face {
+      font-family: 'SF Compact Rounded';
+      src: url('SF-Compact-Rounded-Regular.otf') format('opentype');
+      font-weight: 400; font-style: normal;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f4ef;
+      --bg-card: #ffffff;
+      --bg-card-hover: #fdfcf9;
+      --bg-tag: #f0eeea;
+      --text-100: #1c1917;
+      --text-300: #6b6860;
+      --text-400: #9b9892;
+      --text-500: #b5b2ab;
+      --accent: #c15f3c;
+      --accent-soft: #f5ede8;
+      --border: #e4e2dc;
+      --border-card: #e8e6e0;
+      --shadow-card: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
+      --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.07), 0 12px 32px rgba(0,0,0,0.07);
+    }
+
+    html, body {
+      min-height: 100%;
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text-100);
+    }
+
+    .page { min-height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 12px; }
+
+    .logo-mark { width: 22px; height: 22px; color: var(--accent); }
+
+    .header-title { font-size: 14px; font-weight: 500; color: var(--text-100); }
+
+    .header-divider { width: 1px; height: 16px; background: var(--border); }
+
+    .header-sub { font-size: 13px; color: var(--text-400); }
+
+    .header-right { display: flex; align-items: center; gap: 8px; }
+
+    .header-tag {
+      height: 24px;
+      padding: 0 10px;
+      border-radius: 100px;
+      background: var(--bg-tag);
+      border: 1px solid var(--border);
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-400);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .tag-dot { width: 5px; height: 5px; border-radius: 50%; background: #2db57e; }
+
+    main {
+      flex: 1;
+      max-width: 960px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 56px 40px 80px;
+    }
+
+    .hero { margin-bottom: 56px; }
+
+    .hero-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    .hero-title {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 38px;
+      font-weight: 300;
+      line-height: 1.2;
+      color: var(--text-100);
+      margin-bottom: 16px;
+      letter-spacing: -0.01em;
+    }
+
+    .hero-title em { font-style: italic; }
+
+    .hero-desc {
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--text-300);
+      max-width: 520px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-400);
+    }
+
+    .section-count { font-size: 12px; color: var(--text-500); }
+
+    .iterations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 14px;
+      overflow: hidden;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-card);
+      transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-card-hover);
+      transform: translateY(-2px);
+      border-color: #d8d5ce;
+    }
+
+    .card:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-card);
+    }
+
+    .card-preview {
+      height: 180px;
+      background: #1c1917;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .prev-sidebar {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 28px;
+      background: #141210;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0 6px;
+      gap: 4px;
+    }
+
+    .prev-dot { width: 10px; height: 10px; border-radius: 3px; background: rgba(255,255,255,0.12); }
+    .prev-dot.active { background: rgba(255,255,255,0.22); }
+    .prev-dot-sm { width: 8px; height: 8px; border-radius: 2px; background: rgba(255,255,255,0.08); }
+    .prev-divider { width: 12px; height: 1px; background: rgba(255,255,255,0.07); margin: 1px 0; }
+
+    .prev-chat {
+      position: absolute;
+      left: 28px; right: 0; top: 0; bottom: 0;
+      background: #f5f4ef;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .prev-topbar {
+      height: 22px;
+      border-bottom: 1px solid #e4e2dc;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .prev-title-line { height: 5px; width: 70px; background: #d4d2cc; border-radius: 3px; }
+    .prev-share { margin-left: auto; height: 12px; width: 32px; background: #e8e6e0; border-radius: 4px; }
+
+    .prev-messages {
+      flex: 1;
+      padding: 10px 10px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .prev-human { align-self: flex-end; height: 20px; border-radius: 8px 8px 2px 8px; background: #e3e1db; }
+
+    .prev-claude-wrap { display: flex; flex-direction: column; gap: 4px; }
+    .prev-claude-avatar { width: 10px; height: 10px; border-radius: 50%; background: #c15f3c; margin-bottom: 4px; }
+    .prev-line { height: 5px; border-radius: 3px; background: #d0cec8; }
+    .prev-input { height: 28px; margin: 0 8px 8px; background: #eceae3; border-radius: 8px; flex-shrink: 0; }
+
+    .card-body {
+      padding: 18px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+
+    .card-name { font-size: 15px; font-weight: 600; color: var(--text-100); line-height: 1.3; }
+
+    .version-badge {
+      height: 20px;
+      padding: 0 8px;
+      border-radius: 100px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .badge-original { background: var(--accent-soft); color: var(--accent); border: 1px solid #e8c4b4; }
+    .badge-v { background: var(--bg-tag); color: var(--text-400); border: 1px solid var(--border); }
+
+    .card-desc { font-size: 13px; line-height: 1.55; color: var(--text-300); }
+
+    .card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+    .card-date { font-size: 11.5px; color: var(--text-500); }
+
+    .card-open {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-300);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: inherit;
+      transition: background 100ms, border-color 100ms, color 100ms;
+      text-decoration: none;
+    }
+
+    .card-open:hover {
+      background: var(--text-100);
+      border-color: var(--text-100);
+      color: white;
+    }
+
+    .card-placeholder {
+      border: 1.5px dashed var(--border);
+      border-radius: 14px;
+      height: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--text-500);
+      cursor: default;
+    }
+
+    .placeholder-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--bg-tag);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-500);
+    }
+
+    .placeholder-text { font-size: 13px; color: var(--text-500); }
+
+    .brief {
+      margin-top: 56px;
+      padding: 28px 32px;
+      background: white;
+      border: 1px solid var(--border-card);
+      border-radius: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 32px;
+    }
+
+    .brief-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-400);
+      margin-bottom: 8px;
+    }
+
+    .brief-value {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.5;
+      color: var(--text-100);
+    }
+
+    .brief-stat {
+      font-family: 'SF Compact Rounded', -apple-system, sans-serif;
+      font-size: 32px;
+      font-weight: 400;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .brief-stat-label { font-size: 13px; color: var(--text-300); line-height: 1.4; }
+
+    @media (max-width: 640px) {
+      main { padding: 40px 20px 60px; }
+      header { padding: 0 20px; }
+      .hero-title { font-size: 28px; }
+      .brief { grid-template-columns: 1fr; gap: 20px; }
+      .iterations-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="header-left">
+      <svg class="logo-mark" viewBox="0 0 100 100" fill="currentColor">
+        <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+      </svg>
+      <span class="header-title">UI Lab</span>
+      <div class="header-divider"></div>
+      <span class="header-sub">From Chat to Canvas</span>
+    </div>
+    <div class="header-right">
+      <div class="header-tag">
+        <div class="tag-dot"></div>
+        9 iterations
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <div class="hero">
+      <div class="hero-label">Design Exploration</div>
+      <h1 class="hero-title">Iterating on the<br><em>refinement experience</em></h1>
+      <p class="hero-desc">Each version explores a different approach to how people navigate, edit, and compare AI-generated content. Start with the original, then explore where each iteration takes it.</p>
+    </div>
+
+    <div class="section-header">
+      <span class="section-title">Iterations</span>
+      <span class="section-count">9 of many</span>
+    </div>
+
+    <div class="iterations-grid">
+
+      <!-- ── v11 ── -->
+      <a class="card" href="iterations/v11/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div style="position:absolute; left:28px; right:0; top:0; bottom:0; display:flex; flex-direction:column; background:#faf9f5;">
+            <div style="height:26px; border-bottom:1px solid #e7e8e9; display:flex; align-items:center; justify-content:space-between; padding:0 12px; flex-shrink:0;">
+              <div style="height:5px; width:90px; background:#ccc9c2; border-radius:3px;"></div>
+              <div style="display:flex; gap:4px;">
+                <div style="height:12px; width:24px; background:#1c1917; border-radius:99px;"></div>
+                <div style="height:12px; width:32px; background:#e8e6e0; border-radius:99px;"></div>
+              </div>
+              <div style="height:12px; width:28px; background:#e8e6e0; border-radius:6px;"></div>
+            </div>
+            <div style="flex:1; display:flex; overflow:hidden;">
+              <div style="width:50%; border-right:1px solid #e7e8e9; display:flex; flex-direction:column;">
+                <div style="flex:1; padding:10px 12px 6px; display:flex; flex-direction:column; align-items:center;">
+                  <div style="width:100%; max-width:120px; display:flex; flex-direction:column;">
+                    <div style="align-self:flex-end; background:#eeede8; border-radius:6px; padding:4px 8px; margin-bottom:8px;">
+                      <div style="height:3px; width:60px; background:#b8b5ae; border-radius:2px;"></div>
+                    </div>
+                    <div style="height:3px; width:90px; background:#d4d2cc; border-radius:2px; margin-bottom:6px;"></div>
+                    <div style="background:white; border:1px solid #e7e8e9; border-radius:6px; padding:4px 5px; display:flex; align-items:center; gap:4px; margin-bottom:10px;">
+                      <div style="width:16px; height:16px; background:#f3f3f0; border-radius:4px; flex-shrink:0;"></div>
+                      <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+                        <div style="height:3px; width:45px; background:#b8b5ae; border-radius:2px;"></div>
+                        <div style="height:2px; width:30px; background:#d4d2cc; border-radius:2px;"></div>
+                      </div>
+                    </div>
+                    <div style="align-self:flex-end; background:#eeede8; border-radius:6px; padding:4px 8px; margin-bottom:8px;">
+                      <div style="height:3px; width:70px; background:#b8b5ae; border-radius:2px;"></div>
+                    </div>
+                    <div style="height:3px; width:90px; background:#d4d2cc; border-radius:2px; margin-bottom:6px;"></div>
+                    <div style="background:white; border:1px solid #e7e8e9; border-radius:6px; padding:4px 5px; display:flex; align-items:center; gap:4px;">
+                      <div style="width:16px; height:16px; background:#f3f3f0; border-radius:4px; flex-shrink:0;"></div>
+                      <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+                        <div style="height:3px; width:45px; background:#b8b5ae; border-radius:2px;"></div>
+                        <div style="height:2px; width:30px; background:#d4d2cc; border-radius:2px;"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div style="height:22px; border-top:1px solid #e7e8e9; display:flex; align-items:center; padding:0 10px;">
+                  <div style="background:white; border:1px solid #e7e8e9; border-radius:6px; height:14px; width:80%; margin:0 auto; display:flex; align-items:center; padding:0 6px;">
+                    <div style="height:3px; width:40px; background:#d4d2cc; border-radius:2px;"></div>
+                  </div>
+                </div>
+              </div>
+              <div style="width:50%; display:flex; flex-direction:column; background:white;">
+                <div style="height:16px; border-bottom:1px solid #e7e8e9; display:flex; align-items:flex-end; padding:0 6px; gap:4px;">
+                  <div style="height:12px; padding:0 5px; border-bottom:2px solid #141413; display:flex; align-items:center;"><div style="height:3px; width:22px; background:#1c1917; border-radius:2px;"></div></div>
+                  <div style="height:12px; padding:0 5px; display:flex; align-items:center;"><div style="height:3px; width:20px; background:#d4d2cc; border-radius:2px;"></div></div>
+                </div>
+                <div style="height:16px; border-bottom:1px solid #e7e8e9; display:flex; align-items:center; justify-content:space-between; padding:0 6px;">
+                  <div style="display:flex; gap:3px; align-items:center;"><div style="height:3px; width:18px; background:#d4d2cc; border-radius:2px;"></div></div>
+                  <div style="display:flex; gap:3px;"><div style="height:8px; width:20px; background:#e8e6e0; border-radius:3px;"></div><div style="width:6px; height:6px; background:#e8e6e0; border-radius:50%;"></div></div>
+                </div>
+                <div style="flex:1; padding:8px 10px; display:flex; flex-direction:column; gap:5px;">
+                  <div style="height:5px; width:80px; background:#ccc9c2; border-radius:2px; margin-bottom:2px;"></div>
+                  <div style="height:4px; width:100%; background:#d4d2cc; border-radius:2px;"></div>
+                  <div style="height:4px; width:94%; background:#d4d2cc; border-radius:2px;"></div>
+                  <div style="height:4px; width:88%; background:#d4d2cc; border-radius:2px;"></div>
+                  <div style="height:4px; width:96%; background:#d4d2cc; border-radius:2px;"></div>
+                  <div style="height:4px; width:80%; background:#d4d2cc; border-radius:2px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Ask + Iterate — Refined UI</span>
+            <span class="version-badge badge-v" style="background:#fef3ee; color:#c15f3c; border-color:#f0cdbf;">v11</span>
+          </div>
+          <p class="card-desc">UI polish pass on Ask mode. Version tabs (48px, primary highlighter), sub-header toolbar with pagination and Copy button, inline doc cards in chat, updated typography (16px body), 72px header.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 22</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <!-- ── v10 ── -->
+      <a class="card" href="iterations/v10/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div style="position:absolute; left:28px; right:0; top:0; bottom:0; display:flex; flex-direction:column; background:#faf9f5;">
+            <!-- Header bar with Ask/Iterate pills -->
+            <div style="height:22px; border-bottom:1px solid #e7e8e9; display:flex; align-items:center; justify-content:space-between; padding:0 10px; flex-shrink:0;">
+              <div style="height:5px; width:80px; background:#ccc9c2; border-radius:3px;"></div>
+              <div style="display:flex; gap:4px;">
+                <div style="height:12px; width:24px; background:#1c1917; border-radius:99px;"></div>
+                <div style="height:12px; width:32px; background:#e8e6e0; border-radius:99px;"></div>
+              </div>
+              <div style="height:12px; width:28px; background:#e8e6e0; border-radius:6px;"></div>
+            </div>
+            <!-- Split: chat left, doc right -->
+            <div style="flex:1; display:flex; overflow:hidden;">
+              <!-- Left: chat -->
+              <div style="width:50%; border-right:1px solid #e7e8e9; display:flex; flex-direction:column; padding:10px 10px 6px;">
+                <div style="align-self:flex-end; background:#eeede8; border-radius:8px 8px 2px 8px; padding:4px 8px; margin-bottom:8px;">
+                  <div style="height:4px; width:70px; background:#b8b5ae; border-radius:2px;"></div>
+                </div>
+                <div style="display:flex; gap:4px; align-items:center; margin-bottom:6px;">
+                  <div style="width:12px; height:12px; background:#e8e6e0; border-radius:6px;"></div>
+                  <div style="height:4px; width:50px; background:#d4d2cc; border-radius:2px;"></div>
+                </div>
+                <div style="background:white; border:1px solid #e7e8e9; border-radius:8px; padding:5px 6px; display:flex; align-items:center; gap:6px;">
+                  <div style="width:20px; height:20px; background:#f3f3f0; border-radius:5px; flex-shrink:0;"></div>
+                  <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+                    <div style="height:3px; width:60px; background:#b8b5ae; border-radius:2px;"></div>
+                    <div style="height:3px; width:40px; background:#d4d2cc; border-radius:2px;"></div>
+                  </div>
+                </div>
+              </div>
+              <!-- Right: doc with version tabs -->
+              <div style="width:50%; display:flex; flex-direction:column;">
+                <div style="height:18px; border-bottom:1px solid #e7e8e9; display:flex; align-items:flex-end; padding:0 8px; gap:6px;">
+                  <div style="height:14px; padding:0 6px; border-bottom:2px solid #c15f3c; display:flex; align-items:center;"><div style="height:3px; width:16px; background:#1c1917; border-radius:2px;"></div></div>
+                  <div style="height:14px; padding:0 6px; display:flex; align-items:center;"><div style="height:3px; width:16px; background:#d4d2cc; border-radius:2px;"></div></div>
+                </div>
+                <div style="flex:1; padding:8px 10px; display:flex; flex-direction:column; gap:5px;">
+                  <div style="height:4px; width:100%; background:#d4d2cc; border-radius:2px;"></div>
+                  <div style="height:4px; width:92%; background:#d4d2cc; border-radius:2px;"></div>
+                  <div style="height:4px; width:88%; background:#d4d2cc; border-radius:2px;"></div>
+                  <div style="height:4px; width:95%; background:#d4d2cc; border-radius:2px;"></div>
+                  <div style="height:4px; width:78%; background:#d4d2cc; border-radius:2px;"></div>
+                  <div style="height:4px; width:90%; background:#d4d2cc; border-radius:2px;"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Reply bar -->
+            <div style="height:24px; border-top:1px solid #e7e8e9; display:flex; align-items:center; padding:0 10px;">
+              <div style="background:white; border:1px solid #e7e8e9; border-radius:8px; height:16px; width:50%; display:flex; align-items:center; padding:0 6px;">
+                <div style="height:3px; width:30px; background:#d4d2cc; border-radius:2px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Ask + Iterate Modes</span>
+            <span class="version-badge badge-v" style="background:#fef3ee; color:#c15f3c; border-color:#f0cdbf;">v10</span>
+          </div>
+          <p class="card-desc">Dual-mode UI: Ask mode (default) with chat + doc panel and version tabs, Iterate mode with canvas. Shared version store syncs both views. Inline editing, sticky notes, links.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 22</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <!-- ── v9 ── -->
+      <a class="card" href="iterations/v9/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <!-- Preview: light bg, top header bar, flowing text lines -->
+          <div style="position:absolute; left:28px; right:0; top:0; bottom:0; display:flex; flex-direction:column; background:#faf9f5;">
+            <!-- Header bar -->
+            <div style="height:22px; border-bottom:1px solid #e7e8e9; display:flex; align-items:center; justify-content:space-between; padding:0 10px; flex-shrink:0;">
+              <div style="height:5px; width:80px; background:#ccc9c2; border-radius:3px;"></div>
+              <div style="display:flex; gap:4px;">
+                <div style="height:12px; width:28px; background:#1c1917; border-radius:99px;"></div>
+                <div style="height:12px; width:30px; background:#e8e6e0; border-radius:99px;"></div>
+              </div>
+              <div style="height:12px; width:28px; background:#e8e6e0; border-radius:6px;"></div>
+            </div>
+            <!-- Doc area -->
+            <div style="flex:1; display:flex; flex-direction:column; padding:12px 14px 8px; gap:0; overflow:hidden;">
+              <!-- User bubble (right-aligned) -->
+              <div style="align-self:flex-end; background:#eeede8; border-radius:10px 10px 2px 10px; padding:5px 10px; margin-bottom:12px;">
+                <div style="height:4px; width:90px; background:#b8b5ae; border-radius:2px;"></div>
+              </div>
+              <!-- Document lines -->
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <div style="height:4px; width:100%; background:#d4d2cc; border-radius:2px;"></div>
+                <div style="height:4px; width:94%; background:#d4d2cc; border-radius:2px;"></div>
+                <div style="height:4px; width:88%; background:#d4d2cc; border-radius:2px;"></div>
+                <div style="height:4px; width:96%; background:#d4d2cc; border-radius:2px;"></div>
+                <div style="height:4px; width:80%; background:#d4d2cc; border-radius:2px;"></div>
+                <div style="height:4px; width:92%; background:#d4d2cc; border-radius:2px;"></div>
+                <div style="height:4px; width:70%; background:#d4d2cc; border-radius:2px;"></div>
+              </div>
+            </div>
+            <!-- Reply bar -->
+            <div style="height:28px; border-top:1px solid #e7e8e9; display:flex; align-items:center; justify-content:center; padding:0 10px;">
+              <div style="background:white; border:1px solid #e7e8e9; border-radius:8px; height:18px; width:100%; display:flex; align-items:center; padding:0 8px;">
+                <div style="height:3px; width:40px; background:#d4d2cc; border-radius:2px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Document Canvas — Part 1</span>
+            <span class="version-badge badge-v" style="background:#f0f7ff; color:#2873b5; border-color:#c3daf5;">v9</span>
+          </div>
+          <p class="card-desc">Document-first layout. AI response renders as a full-width flowing artifact — not a chat bubble. Persistent header with title, Ask / Iterate tabs, and Share. Part 2 adds inline editing.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 21</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="iterations/v8/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div style="position:absolute; left:28px; right:0; top:0; bottom:0; display:flex; flex-direction:column; background:#faf9f5;">
+            <div style="height:18px; border-bottom:1px solid #e7e8e9; padding:0 8px; flex-shrink:0;"></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+                <div style="width:24px; height:24px; border-radius:6px; background:#c15f3f;"></div>
+                <div style="height:5px; width:120px; background:#d9d8d4; border-radius:3px;"></div>
+              </div>
+              <div style="width:100%; max-width:200px; background:white; border:1px solid #e7e8e9; border-radius:12px; padding:16px; box-shadow:0 2px 24px rgba(0,0,0,.08);">
+                <div style="height:4px; width:80%; background:#e7e8e9; border-radius:2px; margin-bottom:8px;"></div>
+                <div style="height:4px; width:60%; background:#e7e8e9; border-radius:2px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Iterate Canvas (latest)</span>
+            <span class="version-badge badge-v">v8</span>
+          </div>
+          <p class="card-desc">Light theme canvas with warm cream background. Refined iterate flow, greeting screen, and clean sidebar. Latest iteration.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 20</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="iterations/v7/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div style="position:absolute; left:28px; right:0; top:0; bottom:0; display:flex; flex-direction:column;">
+            <div style="height:18px; border-bottom:1px solid #e4e2dc; padding:0 8px; flex-shrink:0;"></div>
+            <div style="flex:1; background:#141413; display:flex; flex-direction:column; padding:8px; gap:6px;">
+              <div style="align-self:center; padding:12px 20px; background:rgba(255,255,255,.06); border-radius:10px; display:flex; flex-direction:column; align-items:center; gap:6px;">
+                <div style="height:4px; width:100px; background:rgba(255,255,255,.2); border-radius:2px;"></div>
+                <div style="height:3px; width:80px; background:rgba(255,255,255,.12); border-radius:2px;"></div>
+              </div>
+              <div style="flex:1; background:rgba(255,255,255,.04); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:4px;">
+                <div style="height:4px; width:90%; background:rgba(255,255,255,.1); border-radius:2px;"></div>
+                <div style="height:4px; width:85%; background:rgba(255,255,255,.1); border-radius:2px;"></div>
+                <div style="height:4px; width:70%; background:rgba(255,255,255,.08); border-radius:2px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Iterate Canvas</span>
+            <span class="version-badge badge-v">v7</span>
+          </div>
+          <p class="card-desc">Canvas-first layout with dark sidebar. Full-screen iteration workspace. Refined flows for generating and switching between versions.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 19</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="iterations/v6/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div style="position:absolute; left:28px; right:0; top:0; bottom:0; display:flex; flex-direction:column;">
+            <div style="height:18px; border-bottom:1px solid #e4e2dc; display:flex; align-items:center; justify-content:space-between; padding:0 8px; flex-shrink:0;">
+              <div style="height:3px; width:44px; background:#c8c5be; border-radius:2px;"></div>
+              <div style="height:10px; width:52px; border:1px solid #e4e2dc; border-radius:8px; background:white;"></div>
+            </div>
+            <div style="flex:1; position:relative; background-image:radial-gradient(circle,#cac7c0 1px,transparent 1px); background-size:10px 10px; background-color:#f5f4ef; overflow:hidden; padding:8px 6px 22px;">
+              <div style="display:flex; gap:8px; height:100%;">
+                <div style="display:flex; flex-direction:column; width:46%; flex-shrink:0; height:100%;">
+                  <div style="background:#e8e6df; border-radius:6px 6px 6px 2px; padding:4px 6px; max-width:80%; margin-bottom:6px; font-size:1px;">
+                    <div style="height:3px; width:60px; background:#c0bdb6; border-radius:2px;"></div>
+                  </div>
+                  <div style="flex:1; background:white; border-radius:6px; padding:6px 7px; box-shadow:0 1px 4px rgba(0,0,0,.08); overflow:hidden; display:flex; flex-direction:column; gap:4px;">
+                    <div style="height:7px; width:36px; background:#c8c5be; border-radius:3px; margin-bottom:3px;"></div>
+                    <div style="height:3px; width:92%; background:#d8d6d0; border-radius:2px;"></div>
+                    <div style="height:3px; width:80%; background:#d8d6d0; border-radius:2px;"></div>
+                    <div style="height:3px; width:78%; background:#b2dafd; border-radius:2px;"></div>
+                    <div style="height:3px; width:65%; background:#d8d6d0; border-radius:2px;"></div>
+                  </div>
+                </div>
+                <div style="display:flex; flex-direction:column; width:46%; flex-shrink:0; height:100%;">
+                  <div style="background:white; border:1px solid #e4e2dc; border-radius:5px; padding:4px 5px; margin-bottom:6px; display:flex; flex-direction:column; gap:3px;">
+                    <div style="height:3px; width:56px; background:#c8c5be; border-radius:2px;"></div>
+                    <div style="display:flex; overflow:hidden; border-radius:0 3px 3px 0;">
+                      <div style="width:2px; background:#74b9f5; flex-shrink:0; border-radius:1px;"></div>
+                      <div style="padding:2px 4px; background:rgba(178,218,253,.15); display:flex; flex-direction:column; gap:2px; flex:1;">
+                        <div style="height:2px; width:48px; background:#aab8c8; border-radius:1px;"></div>
+                        <div style="height:2px; width:36px; background:#aab8c8; border-radius:1px;"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="flex:1; background:white; border-radius:6px; padding:6px 7px; box-shadow:0 1px 4px rgba(0,0,0,.08); overflow:hidden; display:flex; flex-direction:column; gap:4px;">
+                    <div style="height:7px; width:36px; background:#c8c5be; border-radius:3px; margin-bottom:3px;"></div>
+                    <div style="height:3px; width:90%; background:#d8d6d0; border-radius:2px;"></div>
+                    <div style="height:3px; width:82%; background:#d8d6d0; border-radius:2px;"></div>
+                    <div style="height:3px; width:76%; background:#d8d6d0; border-radius:2px;"></div>
+                  </div>
+                </div>
+              </div>
+              <div style="position:absolute; bottom:4px; left:50%; transform:translateX(-50%); background:#eceae3; border-radius:8px; padding:4px 8px; display:flex; align-items:center; gap:4px; white-space:nowrap;">
+                <div style="height:10px; padding:0 5px; display:flex; align-items:center;">
+                  <div style="height:2px; width:8px; background:#b5b2ab; border-radius:1px;"></div>
+                </div>
+                <div style="height:10px; padding:0 5px; background:#c15f3c; border-radius:8px; display:flex; align-items:center;">
+                  <div style="height:2px; width:10px; background:white; border-radius:1px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Board Canvas</span>
+            <span class="version-badge badge-v">v6</span>
+          </div>
+          <p class="card-desc">Submit any prompt and the UI transitions to a full Figma/Miro-style board. Each iteration generates a new version card side by side. Select text to ask inline — spawning a context block and new version to the right.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 18</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="iterations/v5/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div style="position:absolute; left:28px; right:0; top:0; bottom:0; display:flex;">
+            <div style="flex:0 0 62%; background:white; display:flex; flex-direction:column; border-right:1px solid #e4e2dc;">
+              <div style="height:20px; border-bottom:1px solid #e4e2dc; display:flex; align-items:flex-end; padding:0 6px; gap:0;">
+                <div style="height:20px; padding:0 7px; display:flex; align-items:center; border-bottom:2px solid #c15f3c;">
+                  <div style="height:3px; width:36px; background:#d4d2cc; border-radius:2px;"></div>
+                </div>
+                <div style="height:20px; padding:0 7px; display:flex; align-items:center;">
+                  <div style="height:3px; width:36px; background:#ebebeb; border-radius:2px;"></div>
+                </div>
+              </div>
+              <div style="flex:1; display:flex;">
+                <div style="flex:1; padding:7px 8px; display:flex; flex-direction:column; gap:4px; border-right:1px solid #e4e2dc;">
+                  <div style="height:8px; width:40px; background:#c8c5be; border-radius:3px; margin-bottom:4px;"></div>
+                  <div style="height:4px; width:92%; background:#d0cec8; border-radius:3px;"></div>
+                  <div style="height:4px; width:80%; background:#d0cec8; border-radius:3px;"></div>
+                  <div style="height:4px; width:88%; background:#d0cec8; border-radius:3px;"></div>
+                  <div style="height:4px; width:70%; background:#d0cec8; border-radius:3px;"></div>
+                </div>
+                <div style="flex:1; padding:7px 8px; display:flex; flex-direction:column; gap:4px;">
+                  <div style="height:8px; width:40px; background:#c8c5be; border-radius:3px; margin-bottom:4px;"></div>
+                  <div style="height:4px; width:90%; background:#d0cec8; border-radius:3px;"></div>
+                  <div style="height:4px; width:76%; background:#b2dafd; border-radius:3px;"></div>
+                  <div style="height:4px; width:84%; background:#d0cec8; border-radius:3px;"></div>
+                  <div style="height:4px; width:65%; background:#d0cec8; border-radius:3px;"></div>
+                </div>
+              </div>
+            </div>
+            <div style="flex:1; background:#f5f4ef; display:flex; flex-direction:column;">
+              <div style="height:20px; border-bottom:1px solid #e4e2dc; padding:0 8px; display:flex; align-items:center; gap:4px;">
+                <div style="height:4px; width:44px; background:#c8c5be; border-radius:2px;"></div>
+                <div style="width:6px; height:6px; border-radius:50%; background:#d0cec8;"></div>
+              </div>
+              <div style="flex:1; padding:6px 7px; display:flex; flex-direction:column; gap:5px;">
+                <div style="align-self:flex-end; width:55px; height:14px; background:#e3e1db; border-radius:5px 5px 2px 5px;"></div>
+                <div style="align-self:flex-end; display:flex; max-width:80%;">
+                  <div style="width:2px; background:#74b9f5; border-radius:1px; flex-shrink:0;"></div>
+                  <div style="padding:3px 5px; background:rgba(178,218,253,.2); display:flex; flex-direction:column; gap:2px;">
+                    <div style="height:3px; width:48px; background:#aab8c8; border-radius:2px;"></div>
+                    <div style="height:3px; width:36px; background:#aab8c8; border-radius:2px;"></div>
+                  </div>
+                </div>
+                <div style="align-self:flex-end; width:50px; height:13px; background:#e3e1db; border-radius:5px 5px 2px 5px;"></div>
+                <div style="display:flex; align-items:flex-start; gap:4px;">
+                  <div style="width:7px; height:7px; border-radius:50%; background:#c15f3c; flex-shrink:0; margin-top:2px;"></div>
+                  <div style="height:3px; width:58px; background:#d0cec8; border-radius:2px; margin-top:3px;"></div>
+                </div>
+              </div>
+              <div style="height:28px; margin:0 5px 5px; background:#eceae3; border-radius:8px; display:flex; align-items:center; padding:0 6px; gap:3px;">
+                <div style="height:14px; padding:0 6px; background:#c15f3c; border-radius:10px; display:flex; align-items:center;">
+                  <div style="height:2px; width:10px; background:white; border-radius:1px;"></div>
+                </div>
+                <div style="height:14px; padding:0 6px; display:flex; align-items:center;">
+                  <div style="height:2px; width:14px; background:#b5b2ab; border-radius:1px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Iterate-First</span>
+            <span class="version-badge badge-v">v5</span>
+          </div>
+          <p class="card-desc">Mode toggle lives in the initial input — click Iterate and the version canvas opens immediately. Chat becomes a narrow thread on the right. Ask from the version pane routes questions back into chat and auto-generates new versions.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 18</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="iterations/v4/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div style="position:absolute; left:28px; right:0; top:0; bottom:0; display:flex;">
+            <div style="flex:0 0 42%; background:#f5f4ef; display:flex; flex-direction:column; border-right:1px solid #e4e2dc;">
+              <div style="height:20px; border-bottom:1px solid #e4e2dc;"></div>
+              <div style="flex:1; padding:7px 8px 4px; display:flex; flex-direction:column; gap:5px;">
+                <div style="align-self:flex-end; width:60px; height:15px; background:#e3e1db; border-radius:6px 6px 2px 6px;"></div>
+                <div style="display:flex; flex-direction:column; gap:3px;">
+                  <div style="width:8px; height:8px; border-radius:50%; background:#c15f3c; margin-bottom:2px;"></div>
+                  <div style="height:4px; width:90%; background:#d0cec8; border-radius:3px;"></div>
+                  <div style="height:4px; width:75%; background:#b2dafd; border-radius:3px;"></div>
+                  <div style="height:4px; width:65%; background:#d0cec8; border-radius:3px;"></div>
+                  <div style="margin-top:4px; padding-left:5px; border-left:2px solid #74b9f5; display:flex; flex-direction:column; gap:2px;">
+                    <div style="height:3px; width:50%; background:#c0bdb6; border-radius:2px;"></div>
+                    <div style="height:3px; width:70%; background:#d0cec8; border-radius:2px;"></div>
+                  </div>
+                  <div style="margin-top:4px; height:13px; width:100px; background:white; border:1px solid #e4e2dc; border-radius:4px;"></div>
+                </div>
+              </div>
+              <div style="height:24px; margin:0 5px 5px; background:#eceae3; border-radius:7px;"></div>
+            </div>
+            <div style="flex:1; background:white; display:flex; flex-direction:column;">
+              <div style="height:20px; border-bottom:1px solid #e4e2dc; display:flex; align-items:flex-end; padding:0 6px; gap:0;">
+                <div style="height:20px; padding:0 7px; display:flex; align-items:center; border-bottom:2px solid #c15f3c;">
+                  <div style="height:3px; width:32px; background:#d4d2cc; border-radius:2px;"></div>
+                </div>
+                <div style="height:20px; padding:0 7px; display:flex; align-items:center;">
+                  <div style="height:3px; width:32px; background:#ebebeb; border-radius:2px;"></div>
+                </div>
+              </div>
+              <div style="flex:1; padding:8px 10px; display:flex; flex-direction:column; gap:4px;">
+                <div style="height:3px; width:25px; background:#e4e2dc; border-radius:2px; margin-bottom:5px;"></div>
+                <div style="height:4px; width:96%; background:#d0cec8; border-radius:3px;"></div>
+                <div style="height:4px; width:80%; background:#b2dafd; border-radius:3px;"></div>
+                <div style="height:4px; width:70%; background:#b2dafd; border-radius:3px;"></div>
+                <div style="height:4px; width:88%; background:#d0cec8; border-radius:3px;"></div>
+                <div style="margin-top:4px; padding-left:5px; border-left:2px solid #74b9f5; display:flex; flex-direction:column; gap:2px;">
+                  <div style="height:3px; width:60%; background:#c0bdb6; border-radius:2px;"></div>
+                  <div style="height:3px; width:80%; background:#d0cec8; border-radius:2px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Inline Ask + Iterate</span>
+            <span class="version-badge badge-v">v4</span>
+          </div>
+          <p class="card-desc">Both systems unified. Highlight in chat to ask inline. Highlight in the version panel to refine or ask in-place. Two selection contexts, one coherent interaction model.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 17</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="iterations/v3/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div style="position:absolute; left:28px; right:0; top:0; bottom:0; display:flex;">
+            <div style="flex:0 0 45%; background:#f5f4ef; display:flex; flex-direction:column; border-right:1px solid #e4e2dc;">
+              <div style="height:22px; border-bottom:1px solid #e4e2dc; display:flex; align-items:center; padding:0 8px;">
+                <div style="height:5px; width:60px; background:#d4d2cc; border-radius:3px;"></div>
+              </div>
+              <div style="flex:1; padding:8px 8px 4px; display:flex; flex-direction:column; gap:6px;">
+                <div style="align-self:flex-end; width:70px; height:18px; background:#e3e1db; border-radius:7px 7px 2px 7px;"></div>
+                <div style="display:flex; flex-direction:column; gap:3px;">
+                  <div style="width:8px; height:8px; border-radius:50%; background:#c15f3c; margin-bottom:2px;"></div>
+                  <div style="height:4px; width:90%; background:#d0cec8; border-radius:3px;"></div>
+                  <div style="height:4px; width:80%; background:#d0cec8; border-radius:3px;"></div>
+                  <div style="margin-top:4px; height:14px; width:120px; background:white; border:1px solid #e4e2dc; border-radius:5px;"></div>
+                </div>
+              </div>
+              <div style="height:28px; margin:0 6px 6px; background:#eceae3; border-radius:8px;"></div>
+            </div>
+            <div style="flex:1; background:white; display:flex; flex-direction:column;">
+              <div style="height:22px; border-bottom:1px solid #e4e2dc; display:flex; align-items:flex-end; padding:0 8px; gap:0;">
+                <div style="height:22px; padding:0 8px; display:flex; align-items:center; border-bottom:2px solid #c15f3c;">
+                  <div style="height:4px; width:40px; background:#d4d2cc; border-radius:2px;"></div>
+                </div>
+                <div style="height:22px; padding:0 8px; display:flex; align-items:center;">
+                  <div style="height:4px; width:40px; background:#e8e6e0; border-radius:2px;"></div>
+                </div>
+              </div>
+              <div style="flex:1; padding:10px 12px; display:flex; flex-direction:column; gap:5px;">
+                <div style="height:4px; width:30px; background:#e4e2dc; border-radius:2px; margin-bottom:6px;"></div>
+                <div style="height:5px; width:95%; background:#d0cec8; border-radius:3px;"></div>
+                <div style="height:5px; width:88%; background:#b2dafd; border-radius:3px;"></div>
+                <div style="height:5px; width:92%; background:#b2dafd; border-radius:3px;"></div>
+                <div style="height:5px; width:70%; background:#d0cec8; border-radius:3px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Iterate Mode</span>
+            <span class="version-badge badge-v">v3</span>
+          </div>
+          <p class="card-desc">A dedicated iteration panel that slides in beside chat. Select text in the version view, load it as context, generate new versions — and switch between them with tabs.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 17</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="iterations/v2/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div class="prev-chat">
+            <div class="prev-topbar">
+              <div class="prev-title-line"></div>
+              <div class="prev-share"></div>
+            </div>
+            <div class="prev-messages">
+              <div class="prev-human" style="width: 110px;"></div>
+              <div class="prev-claude-wrap">
+                <div class="prev-claude-avatar"></div>
+                <div class="prev-line" style="width: 95%;"></div>
+                <div style="width:88%; height:5px; border-radius:3px; background:#b2dafd; margin:2px 0;"></div>
+                <div style="width:80%; height:5px; border-radius:3px; background:#b2dafd; margin:2px 0;"></div>
+                <div class="prev-line" style="width: 65%;"></div>
+                <div style="position:relative; margin-top:4px;">
+                  <div style="display:inline-flex;align-items:center;gap:3px;background:white;border:1px solid #e4e2dc;border-radius:6px;padding:3px 5px;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+                    <div style="width:16px;height:10px;background:#e8e6e0;border-radius:3px;"></div>
+                    <div style="width:1px;height:10px;background:#e4e2dc;"></div>
+                    <div style="width:24px;height:10px;background:#e8e6e0;border-radius:3px;"></div>
+                    <div style="width:20px;height:10px;background:#c15f3c;border-radius:3px;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="prev-input"></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Inline Ask</span>
+            <span class="version-badge badge-v">v2</span>
+          </div>
+          <p class="card-desc">Select any part of Claude's response to ask a follow-up right there. A floating toolbar appears on selection — click Ask to open a mini input anchored to that text.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 17</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <a class="card" href="iterations/v1/index.html">
+        <div class="card-preview">
+          <div class="prev-sidebar">
+            <div class="prev-dot active"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-divider"></div>
+            <div class="prev-dot-sm"></div>
+            <div class="prev-dot-sm"></div>
+          </div>
+          <div class="prev-chat">
+            <div class="prev-topbar">
+              <div class="prev-title-line"></div>
+              <div class="prev-share"></div>
+            </div>
+            <div class="prev-messages">
+              <div class="prev-human" style="width: 100px;"></div>
+              <div class="prev-claude-wrap">
+                <div class="prev-claude-avatar"></div>
+                <div class="prev-line" style="width: 95%;"></div>
+                <div class="prev-line" style="width: 88%;"></div>
+                <div class="prev-line" style="width: 72%;"></div>
+                <div class="prev-line" style="width: 80%;"></div>
+              </div>
+              <div class="prev-human" style="width: 80px;"></div>
+            </div>
+            <div class="prev-input"></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="card-top">
+            <span class="card-name">Original Claude UI</span>
+            <span class="version-badge badge-original">Original</span>
+          </div>
+          <p class="card-desc">Faithful recreation of Claude's current interface. Linear chat, streaming responses, full icon set. The baseline everything else is measured against.</p>
+          <div class="card-footer">
+            <span class="card-date">Mar 17</span>
+            <span class="card-open">Open <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg></span>
+          </div>
+        </div>
+      </a>
+
+      <div class="card-placeholder">
+        <div class="placeholder-icon">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+        </div>
+        <span class="placeholder-text">Next iteration</span>
+      </div>
+
+    </div>
+
+    </div>
+
+    <div class="brief">
+      <div class="brief-item">
+        <div class="brief-label">Problem</div>
+        <div class="brief-value">Chat is linear and append-only. No way to go back, branch, or hold two states at once.</div>
+      </div>
+      <div class="brief-item">
+        <div class="brief-label">Who it's for</div>
+        <div class="brief-value">Non-technical users creating and refining text — writers, students, marketers, job seekers.</div>
+      </div>
+      <div class="brief-item">
+        <div class="brief-label">Key signals</div>
+        <div class="brief-stat">1.7</div>
+        <div class="brief-stat-label">avg messages per conversation — most users bail after one response</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

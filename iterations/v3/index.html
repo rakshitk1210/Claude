@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude — v3 Iterate Mode</title>
+  <style>
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-semibold.woff2') format('woff2');
+      font-weight: 600; font-style: normal;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-sidebar: #1c1917;
+      --bg-main: #f5f4ef;
+      --bg-input: #eceae3;
+      --bg-human: #e8e6df;
+      --bg-panel: #ffffff;
+      --text-100: #1c1917;
+      --text-300: #6b6860;
+      --text-400: #9b9892;
+      --text-500: #b5b2ab;
+      --accent: #c15f3c;
+      --border: #e4e2dc;
+      --selection-bg: #b2dafd;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg-main);
+      color: var(--text-100);
+    }
+
+    /* ── App ── */
+    .app { display: flex; height: 100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 54px; background: var(--bg-sidebar);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0 10px; flex-shrink: 0;
+    }
+    .sidebar-top { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1; }
+    .sidebar-bottom { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .sb-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #9b9892; transition: background 120ms, color 120ms;
+    }
+    .sb-btn:hover { background: rgba(255,255,255,0.08); color: #f5f4ef; }
+    .sb-btn.active { color: rgba(255,255,255,0.85); }
+    .sb-divider { width: 22px; height: 1px; background: rgba(255,255,255,0.07); margin: 5px 0; }
+    .user-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; font-weight: 600; color: white; cursor: pointer; letter-spacing: 0.03em;
+    }
+
+    /* ── Main wrapper ── */
+    .main {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      height: 46px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0; background: var(--bg-main); z-index: 5;
+    }
+    .topbar-title {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      border-radius: 6px; padding: 4px 6px; margin-left: -6px; transition: background 100ms;
+    }
+    .topbar-title:hover { background: rgba(0,0,0,0.05); }
+    .topbar-title svg { color: var(--text-400); }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .share-btn {
+      height: 29px; padding: 0 12px; border: 1px solid var(--border);
+      border-radius: 8px; background: white; font-size: 13px; font-weight: 500;
+      cursor: pointer; color: var(--text-100); transition: background 100ms;
+      display: flex; align-items: center; font-family: inherit;
+    }
+    .share-btn:hover { background: var(--bg-input); }
+
+    /* Iterate mode badge in topbar */
+    .iterate-badge {
+      display: none; align-items: center; gap: 5px;
+      height: 24px; padding: 0 10px;
+      border-radius: 100px; background: rgba(193,95,60,0.1);
+      border: 1px solid rgba(193,95,60,0.2);
+      font-size: 11.5px; font-weight: 600; color: var(--accent);
+      cursor: pointer; transition: background 100ms;
+    }
+    .iterate-badge:hover { background: rgba(193,95,60,0.15); }
+    .iterate-badge.visible { display: flex; }
+    .iterate-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+      animation: pulse 2s ease infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* ── Content area: chat + iterate panel ── */
+    .content-area {
+      flex: 1; display: flex; overflow: hidden;
+    }
+
+    /* ── Chat pane ── */
+    .chat-pane {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; min-width: 0;
+      transition: flex 350ms cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .messages-wrap {
+      flex: 1; overflow-y: auto; scroll-behavior: smooth;
+    }
+    .messages-wrap::-webkit-scrollbar { width: 5px; }
+    .messages-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+
+    .messages-inner {
+      max-width: 688px; margin: 0 auto;
+      padding: 36px 24px 24px;
+      display: flex; flex-direction: column; gap: 28px;
+    }
+
+    /* When iterate is open, constrain chat width */
+    .app.iterate-open .chat-pane { flex: 0 0 auto; width: 45%; min-width: 340px; }
+    .app.iterate-open .messages-inner { max-width: 560px; }
+
+    /* Human message */
+    .msg-human { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .human-bubble {
+      background: var(--bg-human); border-radius: 18px 18px 4px 18px;
+      padding: 10px 15px; font-size: 15px; line-height: 1.55;
+      max-width: 78%; color: var(--text-100); word-break: break-word;
+    }
+    .human-meta { display: flex; align-items: center; gap: 10px; padding-right: 2px; }
+    .meta-time { font-size: 11px; color: var(--text-400); }
+    .action-row { display: flex; align-items: center; gap: 1px; opacity: 0; transition: opacity 140ms; }
+    .msg-human:hover .action-row { opacity: 1; }
+    .msg-claude-wrap:hover .claude-action-row { opacity: 1; }
+    .act-btn {
+      width: 28px; height: 28px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: background 100ms, color 100ms;
+    }
+    .act-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-100); }
+
+    /* Claude message */
+    .msg-claude-wrap { display: flex; flex-direction: column; }
+    .claude-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .claude-avatar-icon { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; }
+    .claude-name { font-size: 13px; font-weight: 500; color: var(--text-300); }
+    .claude-body {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 400; line-height: 1.78; color: var(--text-100);
+    }
+    .claude-body p + p { margin-top: 15px; }
+    .claude-body h3 { font-size: 17px; font-weight: 600; line-height: 1.35; margin: 22px 0 8px; }
+    .claude-body ul, .claude-body ol { padding-left: 22px; margin: 10px 0; }
+    .claude-body li { margin: 5px 0; }
+    .claude-body strong { font-weight: 600; }
+    .claude-body em { font-style: italic; }
+
+    .claude-action-row {
+      display: flex; align-items: center; gap: 1px; margin-top: 14px;
+      opacity: 0; transition: opacity 140ms;
+    }
+
+    /* ── Iterate mode CTA ── */
+    .iterate-cta {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 16px; padding: 10px 14px;
+      border-radius: 10px; border: 1px solid var(--border);
+      background: white; cursor: pointer;
+      color: var(--text-300); font-size: 13px;
+      transition: border-color 150ms, background 150ms, color 150ms;
+      width: fit-content;
+    }
+    .iterate-cta:hover { border-color: var(--accent); color: var(--accent); background: rgba(193,95,60,0.04); }
+    .iterate-cta svg { flex-shrink: 0; }
+    .iterate-cta.hidden { display: none; }
+
+    /* Streaming cursor */
+    .stream-cursor {
+      display: inline-block; width: 2px; height: 15px;
+      background: var(--text-300); border-radius: 1px;
+      vertical-align: text-bottom; margin-left: 1px;
+      animation: blink 0.85s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Input area ── */
+    .input-area {
+      padding: 10px 20px 18px; flex-shrink: 0; background: var(--bg-main);
+    }
+    .input-wrap {
+      max-width: 688px; margin: 0 auto;
+      background: var(--bg-input); border-radius: 14px;
+      padding: 10px 10px 8px 14px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: box-shadow 150ms;
+    }
+    .app.iterate-open .input-wrap { max-width: 100%; }
+    .input-wrap:focus-within { box-shadow: 0 0 0 1.5px rgba(0,0,0,0.12); }
+
+    /* Quoted context in input (for iterate mode) */
+    .input-context {
+      display: none; align-items: flex-start; gap: 8px;
+      padding: 6px 0 8px;
+      border-bottom: 1px solid rgba(0,0,0,0.07);
+      margin-bottom: 2px;
+    }
+    .input-context.visible { display: flex; }
+    .input-context-bar {
+      width: 2px; height: 100%; min-height: 32px;
+      background: #74b9f5; border-radius: 1px; flex-shrink: 0; align-self: stretch;
+    }
+    .input-context-text {
+      font-size: 13px; line-height: 1.5; color: var(--text-400);
+      font-style: italic; flex: 1; min-width: 0;
+    }
+    .input-context-close {
+      width: 18px; height: 18px; border-radius: 4px; border: none;
+      background: transparent; cursor: pointer; color: var(--text-400);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: color 100ms;
+    }
+    .input-context-close:hover { color: var(--text-100); }
+
+    .input-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 15px; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      color: var(--text-100); resize: none; outline: none;
+      line-height: 1.5; min-height: 22px; max-height: 140px;
+    }
+    .input-field::placeholder { color: var(--text-400); }
+    .input-toolbar { display: flex; align-items: center; justify-content: space-between; }
+    .input-left, .input-right { display: flex; align-items: center; gap: 3px; }
+    .tool-btn {
+      height: 28px; padding: 0 8px; border: none; border-radius: 7px;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+      color: var(--text-400); font-size: 12.5px; font-weight: 500;
+      font-family: inherit; transition: background 100ms, color 100ms;
+    }
+    .tool-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-100); }
+    .model-btn {
+      height: 28px; padding: 0 8px; border: none; border-radius: 7px;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; gap: 3px;
+      color: var(--text-400); font-size: 12.5px; font-weight: 500;
+      font-family: inherit; transition: background 100ms, color 100ms;
+    }
+    .model-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-100); }
+    .send-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--text-100); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 100ms, transform 80ms;
+    }
+    .send-btn:hover:not(:disabled) { background: #333; }
+    .send-btn:active:not(:disabled) { transform: scale(0.92); }
+    .send-btn:disabled { background: #c8c5be; cursor: not-allowed; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #2db57e; }
+
+    /* ── Iterate Panel ── */
+    .iterate-pane {
+      width: 0; overflow: hidden;
+      border-left: 1px solid var(--border);
+      background: white;
+      display: flex; flex-direction: column;
+      transition: width 350ms cubic-bezier(0.4,0,0.2,1);
+      flex-shrink: 0;
+    }
+    .app.iterate-open .iterate-pane { width: 55%; }
+
+    /* Version tabs */
+    .version-tabs {
+      display: flex; align-items: flex-end;
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      flex-shrink: 0;
+      height: 46px;
+      gap: 0;
+      overflow-x: auto;
+    }
+    .version-tabs::-webkit-scrollbar { display: none; }
+
+    .version-tab {
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 14px;
+      height: 100%;
+      font-size: 13px; font-weight: 500;
+      color: var(--text-400);
+      cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      white-space: nowrap;
+      transition: color 120ms, border-color 120ms;
+      font-family: inherit;
+    }
+    .version-tab:hover { color: var(--text-100); }
+    .version-tab.active {
+      color: var(--text-100);
+      border-bottom-color: var(--accent);
+    }
+    .version-tab .tab-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: transparent; flex-shrink: 0;
+    }
+    .version-tab.active .tab-dot { background: var(--accent); }
+
+    /* New version button in tabs */
+    .tab-new-btn {
+      width: 28px; height: 28px; border-radius: 7px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); margin-left: 4px; align-self: center;
+      transition: background 100ms, color 100ms;
+      flex-shrink: 0;
+    }
+    .tab-new-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-100); }
+
+    /* Version content */
+    .version-content-wrap {
+      flex: 1; overflow-y: auto; position: relative;
+    }
+    .version-content-wrap::-webkit-scrollbar { width: 5px; }
+    .version-content-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 3px; }
+
+    .version-panel {
+      display: none; padding: 32px 40px 32px;
+      min-height: 100%;
+    }
+    .version-panel.active { display: block; }
+
+    .version-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-400);
+      margin-bottom: 20px;
+    }
+
+    .version-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 17px; font-weight: 400; line-height: 1.8;
+      color: var(--text-100);
+      outline: none;
+      min-height: 80px;
+    }
+    .version-text:focus { outline: none; }
+    .version-text p + p { margin-top: 16px; }
+
+    /* Selection styling in version panel */
+    .version-text ::selection { background: var(--selection-bg); }
+    .version-text ::-moz-selection { background: var(--selection-bg); }
+
+    /* Skeleton loading lines */
+    .skeleton-wrap { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .skeleton-line {
+      height: 16px; border-radius: 8px;
+      background: linear-gradient(90deg, #f0eeea 25%, #e4e2dc 50%, #f0eeea 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s ease infinite;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* Panel close button */
+    .panel-close {
+      position: absolute; top: 12px; right: 12px;
+      width: 28px; height: 28px; border-radius: 7px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: background 100ms, color 100ms;
+    }
+    .panel-close:hover { background: rgba(0,0,0,0.05); color: var(--text-100); }
+
+    /* ── Floating selection toolbar (for version panel) ── */
+    #version-toolbar {
+      position: fixed; z-index: 100;
+      background: white; border: 1px solid #e4e2dc;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
+      display: none; align-items: center; gap: 6px; padding: 5px 7px;
+      pointer-events: all; white-space: nowrap;
+    }
+    #version-toolbar.visible { display: flex; }
+    .vt-divider { width: 1px; height: 18px; background: #e4e2dc; }
+    .vt-icon-btn {
+      width: 28px; height: 28px; border-radius: 7px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-300); transition: background 100ms, color 100ms;
+    }
+    .vt-icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-100); }
+    .vt-btn {
+      height: 28px; padding: 0 10px; border-radius: 7px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 4px; font-family: inherit;
+    }
+    .vt-btn-secondary { border: 1px solid #e0ddd7; background: white; color: var(--text-100); }
+    .vt-btn-secondary:hover { background: #f5f4ef; }
+    .vt-btn-primary { border: none; background: var(--accent); color: white; }
+    .vt-btn-primary:hover { background: #b05535; }
+
+    /* Empty state */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: calc(100vh - 200px); gap: 16px; color: var(--text-400); pointer-events: none;
+    }
+    .empty-state svg { opacity: 0.2; }
+    .empty-state p { font-size: 14px; }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <button class="sb-btn active">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg>
+      </button>
+      <button class="sb-btn" onclick="newChat()">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+      </button>
+      <button class="sb-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M8.5 2C12.0899 2 15 4.91015 15 8.5C15 10.1149 14.4094 11.5908 13.4346 12.7275L17.8535 17.1465C18.0244 17.6827 17.8535 17.8535 17.1465 17.8535L12.7275 13.4346C11.5908 14.4094 10.1149 15 8.5 15C4.91015 15 2 12.0899 2 8.5C2 4.91015 4.91015 2 8.5 2ZM8.5 3C5.46243 3 3 5.46243 3 8.5C3 11.5376 5.46243 14 8.5 14C11.5376 14 14 11.5376 14 8.5C14 5.46243 11.5376 3 8.5 3Z"/></svg>
+      </button>
+      <button class="sb-btn">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M15.8198 7C16.6885 7 17.3624 7.73158 17.3178 8.57617L17.2993 8.74707L16.1332 15.7471C16.0126 16.4699 15.3865 17 14.6538 17H5.34711C4.6142 17 3.98833 16.47 3.86762 15.7471L2.7016 8.74707C2.54922 7.83277 3.25418 7 4.18109 7H15.8198ZM16.0004 5.5C16.0004 5.224 15.7764 5 15.5004 5H4.50043C4.22428 5 4.00043 5.22386 4.00043 5.5C4.00043 5.77614 4.22428 6 4.50043 6H15.5004C15.7764 6 16.0004 5.776 16.0004 5.5ZM14.5004 3.5C14.5004 3.224 14.2764 3 14.0004 3H6.00043C5.72428 3 5.50043 3.22386 5.50043 3.5C5.50043 3.77614 5.72428 4 6.00043 4H14.0004C14.2764 4 14.5004 3.776 14.5004 3.5Z"/></svg>
+      </button>
+      <div class="sb-divider"></div>
+      <button class="sb-btn">
+        <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M239.2,97.29a15.89,15.89,0,0,0-13-10.78l-59.06-4.92L144.27,26.8a15.91,15.91,0,0,0-29.3,0L92.86,81.59,33.8,86.51A15.89,15.89,0,0,0,20.8,97.29,16.46,16.46,0,0,0,25.95,115l45,38.83L57.17,211.8a16.38,16.38,0,0,0,6.86,17.67,15.84,15.84,0,0,0,18.62-.8L128,193.38l45.35,35.29a15.86,15.86,0,0,0,18.62.8,16.38,16.38,0,0,0,6.86-17.67l-13.78-58-45-38.83A16.46,16.46,0,0,0,239.2,97.29Z"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="user-avatar">RK</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <span id="convo-title">New conversation</span>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z"/></svg>
+      </div>
+      <div class="topbar-right">
+        <div class="iterate-badge" id="iterate-badge" onclick="closeIteratePanel()">
+          <div class="iterate-badge-dot"></div>
+          Iterate mode
+          <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <button class="share-btn">Share</button>
+      </div>
+    </header>
+
+    <div class="content-area">
+
+      <!-- Chat pane -->
+      <div class="chat-pane">
+        <div class="messages-wrap" id="messages-wrap">
+          <div class="messages-inner" id="messages-inner">
+            <div class="empty-state" id="empty-state">
+              <svg width="36" height="36" viewBox="0 0 100 100" fill="currentColor"><path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/></svg>
+              <p>Ask something to get started</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-area">
+          <div class="input-wrap" id="input-wrap">
+            <!-- Quoted context strip (shown when selection is loaded from iterate panel) -->
+            <div class="input-context" id="input-context">
+              <div class="input-context-bar"></div>
+              <div class="input-context-text" id="input-context-text"></div>
+              <button class="input-context-close" onclick="clearContext()" title="Remove context">
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <textarea class="input-field" id="input-field" placeholder="Reply to Claude…" rows="1"></textarea>
+            <div class="input-toolbar">
+              <div class="input-left">
+                <button class="tool-btn">
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+                </button>
+              </div>
+              <div class="input-right">
+                <button class="model-btn">
+                  Opus 4.5 Extended
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z"/></svg>
+                </button>
+                <div class="status-dot"></div>
+                <button class="send-btn" id="send-btn" disabled>
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V12.1855L13.626 8.66797C13.8094 8.46166 14.1256 8.44275 14.332 8.62598C14.5383 8.80936 14.5573 9.12563 14.374 9.33203L10.374 13.832C10.21 13.9654 10.107 14 10 14C9.85718 14 9.72086 13.9388 9.62598 13.832L5.62598 9.33203C5.45079 9.04872 5.48735 8.78653 5.66797 8.62598C5.84854 8.46567 6.1127 8.46039 6.29883 8.59961L6.37402 8.66797L9.5 12.1855V3.5C9.5 3.22386 9.72386 3 10 3Z"/><path d="M3.5 13C3.22386 13 3 13.2239 3 13.5V15.5C3 16.3284 3.67157 17 4.5 17H15.5C16.3284 17 17 16.3284 17 15.5V13.5C17 13.2239 16.7761 13 16.5 13C16.2239 13 16 13.2239 16 13.5V15.5C16 15.7761 15.7761 16 15.5 16H4.5C4.22386 16 4 15.7761 4 15.5V13.5C4 13.2239 3.77614 13 3.5 13Z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /chat-pane -->
+
+      <!-- ── Iterate Panel ── -->
+      <div class="iterate-pane" id="iterate-pane">
+        <div style="position:relative; height:100%; display:flex; flex-direction:column;">
+
+          <!-- Close button -->
+          <button class="panel-close" onclick="closeIteratePanel()" title="Exit iterate mode">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          </button>
+
+          <!-- Version tabs -->
+          <div class="version-tabs" id="version-tabs"></div>
+
+          <!-- Version panels -->
+          <div class="version-content-wrap" id="version-content-wrap"></div>
+
+        </div>
+      </div>
+
+    </div><!-- /content-area -->
+  </main>
+</div><!-- /app -->
+
+<!-- ── Version panel selection toolbar ── -->
+<div id="version-toolbar">
+  <button class="vt-icon-btn" id="vt-copy-btn" title="Copy">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M7 2C6.17157 2 5.5 2.67157 5.5 3.5V4H5C3.89543 4 3 4.89543 3 6V16C3 17.1046 3.89543 18 5 18H13C14.1046 18 15 17.1046 15 16V15.5H15.5C16.3284 15.5 17 14.8284 17 14V5.5C17 5.10218 16.842 4.72064 16.5607 4.43934L14.5607 2.43934C14.2794 2.15804 13.8978 2 13.5 2H7ZM7 3H13V5.5C13 6.32843 13.6716 7 14.5 7H16V14C16 14.5523 15.5523 15 15 15H7C6.44772 15 6.5 14.5523 6.5 14V3.5C6.5 3.22386 6.72386 3 7 3Z"/></svg>
+  </button>
+  <div class="vt-divider"></div>
+  <button class="vt-btn vt-btn-secondary" id="vt-ask-btn">
+    <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v7a2 2 0 01-2 2H7l-4 3V5z" fill="currentColor"/></svg>
+    Ask about this
+  </button>
+  <button class="vt-btn vt-btn-primary" id="vt-iterate-btn">
+    <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M10.3857 2.50977C14.3486 2.71054 17.5 5.98724 17.5 10C17.5 14.1421 14.1421 17.5 10 17.5C5.85786 17.5 2.5 14.1421 2.5 10C2.5 7.54619 3.67878 5.3677 5.49902 4H3C2.72386 4 2.5 3.77614 2.5 3.5C2.5 3.22386 2.72386 3 3 3H6.5L7 3.5V7C7 7.27614 6.77614 7.5 6.5 7.5C6.22386 7.5 6 7.27614 6 7V4.87891C4.4782 6.06926 3.5 7.91979 3.5 10C3.5 13.5899 6.41015 16.5 10 16.5C13.5899 16.5 16.5 13.5899 16.5 10C16.5 6.5225 13.7691 3.68312 10.335 3.50879C9.72386 3.5 9.5 3.27614 9.5 3C9.5 2.72386 9.72386 2.5 10 2.5L10.3857 2.50977Z"/></svg>
+    Iterate
+  </button>
+</div>
+
+<script>
+  const ITERATION = { version: "v3", focus: "Iterate mode — version panel", date: "2026-03-17" };
+
+  // ── State ─────────────────────────────────────────────────────────
+  let versions       = [];   // { id, label, content (html string) }
+  let activeVersionId = null;
+  let iterateSourceHtml = ''; // raw HTML of first Claude response
+  let isStreaming    = false;
+  let messageCount   = 0;
+  let responseIdx    = 0;
+  let iterateOpen    = false;
+
+  // ── Responses ─────────────────────────────────────────────────────
+  const CHAT_RESPONSES = [
+    `<p>The distinction you're pointing at is important. Most systems treat state as an implementation concern — something to be managed, cached, synchronized. But for the user, state <em>is</em> the experience. When they can't see it, navigate it, or trust it, the whole thing falls apart.</p><p>The specific failure mode here is <strong>implicit state loss</strong> — the user made progress, that progress exists somewhere, but there's no affordance to surface it. It's not that the state is gone; it's that it's become inaccessible. That's a UI problem, not a data problem.</p>`,
+    `<p>That's a sharper way to put it than most people do. The linearity isn't a constraint of the technology — it's a design choice that made sense for conversation but doesn't make sense for editing.</p><p>When you're having a conversation, append-only is natural. When you're producing an artifact, it's suffocating. The mental model mismatch is what causes the friction.</p>`,
+    `<p>Precisely. The cost of refinement isn't in generating the next version — that's cheap now. The cost is in <strong>evaluating</strong> it: reading, comparing, deciding what's better, figuring out what changed and whether the change is an improvement.</p><p>Everything that reduces that evaluation cost is a multiplier on how much iteration actually happens. Which is why the interface matters more than people assume.</p>`,
+  ];
+
+  // Pre-written version variants that cycle when generating
+  const VERSION_VARIANTS = [
+    `<p>The distinction you're pointing at is important. Most systems treat state as an implementation concern — something to be managed, cached, synchronized. But for the user, state <em>is</em> the experience. When they can't see it, navigate it, or trust it, the whole thing falls apart.</p><p>The specific failure mode here is <strong>implicit state loss</strong> — the user made progress, that progress exists somewhere, but there's no affordance to surface it. That's a UI problem, not a data problem.</p>`,
+    `<p>State, from the user's perspective, is not a technical concept — it's a <em>trust</em> concept. When the system doesn't surface what it knows, the user has to hold everything in their head. That cognitive overhead is where most people give up.</p><p><strong>Implicit state loss</strong> is the core failure: progress exists but becomes unreachable. The fix isn't better storage — it's better affordances for navigating what's already there.</p>`,
+    `<p>Here's the core tension: state is invisible by default, but refinement requires comparing states. The moment you need to say "go back to what I had before," you're asking the system to surface something it was never designed to show you.</p><p>The linearity of chat makes this worse — every new message buries the previous output. But the solution isn't more messages. It's a different <em>relationship</em> between the conversation and the artifact it's producing.</p>`,
+    `<p>Most interfaces treat state as infrastructure. Users experience it as memory. When the system forgets — or appears to — users don't think "cache invalidation problem." They think "it lost my work."</p><p>The gap between those two frames is where most AI tool frustration lives. Closing it requires making the history of the artifact visible and navigable, not just the history of the conversation.</p>`,
+  ];
+
+  let variantIdx = 0;
+
+  // ── DOM refs ──────────────────────────────────────────────────────
+  const app           = document.getElementById('app');
+  const inputField    = document.getElementById('input-field');
+  const sendBtn       = document.getElementById('send-btn');
+  const messagesInner = document.getElementById('messages-inner');
+  const messagesWrap  = document.getElementById('messages-wrap');
+  const convoTitle    = document.getElementById('convo-title');
+  const iterateBadge  = document.getElementById('iterate-badge');
+  const iteratePane   = document.getElementById('iterate-pane');
+  const versionTabs   = document.getElementById('version-tabs');
+  const versionContentWrap = document.getElementById('version-content-wrap');
+  const inputContext  = document.getElementById('input-context');
+  const inputContextText = document.getElementById('input-context-text');
+  const versionToolbar = document.getElementById('version-toolbar');
+
+  // ── Input ─────────────────────────────────────────────────────────
+  inputField.addEventListener('input', () => {
+    inputField.style.height = 'auto';
+    inputField.style.height = Math.min(inputField.scrollHeight, 140) + 'px';
+    sendBtn.disabled = inputField.value.trim() === '' || isStreaming;
+  });
+
+  inputField.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) submit(); }
+  });
+  sendBtn.addEventListener('click', submit);
+
+  function submit() {
+    const text = inputField.value.trim();
+    if (!text || isStreaming) return;
+
+    const hasContext = inputContext.classList.contains('visible');
+    const contextText = inputContextText.textContent;
+
+    document.getElementById('empty-state')?.remove();
+    if (messageCount === 0) convoTitle.textContent = text.length > 42 ? text.slice(0, 42) + '…' : text;
+    messageCount++;
+
+    addHumanMessage(text);
+    inputField.value = ''; inputField.style.height = 'auto';
+    sendBtn.disabled = true;
+    clearContext();
+
+    if (hasContext && iterateOpen) {
+      // In iterate mode with context → generate a new version
+      generateNewVersion(contextText, text);
+    } else {
+      // Normal chat response
+      const resp = CHAT_RESPONSES[responseIdx % CHAT_RESPONSES.length];
+      responseIdx++;
+      streamChatResponse(resp);
+    }
+  }
+
+  // ── Human message ─────────────────────────────────────────────────
+  function addHumanMessage(text) {
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const el = document.createElement('div');
+    el.className = 'msg-human';
+    el.innerHTML = `
+      <div class="human-bubble">${escHtml(text)}</div>
+      <div class="human-meta">
+        <div class="action-row">
+          <button class="act-btn" title="Edit"><svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.72821 2.87934C10.0318 2.10869 10.9028 1.72933 11.6735 2.03266L14.4655 3.13226C15.236 3.43593 15.6145 4.30697 15.3112 5.07758L11.3903 15.0307C11.2954 15.2717 11.1394 15.4835 10.9391 15.6459L10.8513 15.7123L7.7077 17.8979C7.29581 18.1843 6.73463 17.9917 6.57294 17.5356L5.737 13.6987C5.67447 13.4092 5.69977 13.107 5.80829 12.8315L9.72821 2.87934Z"/></svg></button>
+        </div>
+        <span class="meta-time">${time}</span>
+      </div>`;
+    messagesInner.appendChild(el);
+    scrollToBottom();
+  }
+
+  // ── Chat response ─────────────────────────────────────────────────
+  function streamChatResponse(html) {
+    isStreaming = true;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-claude-wrap';
+    wrapper.innerHTML = `
+      <div class="claude-header">
+        <svg class="claude-avatar-icon" viewBox="0 0 100 100" fill="currentColor"><path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/></svg>
+        <span class="claude-name">Claude</span>
+      </div>
+      <div class="claude-body"></div>
+      <div class="claude-action-row">
+        <button class="act-btn" title="Copy"><svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M7 2C6.17157 2 5.5 2.67157 5.5 3.5V4H5C3.89543 4 3 4.89543 3 6V16C3 17.1046 3.89543 18 5 18H13C14.1046 18 15 17.1046 15 16V15.5H15.5C16.3284 15.5 17 14.8284 17 14V5.5C17 5.10218 16.842 4.72064 16.5607 4.43934L14.5607 2.43934C14.2794 2.15804 13.8978 2 13.5 2H7ZM7 3H13V5.5C13 6.32843 13.6716 7 14.5 7H16V14C16 14.5523 15.5523 15 15 15H7C6.44772 15 6.5 14.5523 6.5 14V3.5C6.5 3.22386 6.72386 3 7 3Z"/></svg></button>
+        <button class="act-btn" title="Thumbs up"><svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.56055 2C11.1381 2 12.3211 3.44332 12.0117 4.99023L11.6094 7H13.8438C15.5431 7 16.836 8.52594 16.5566 10.2021L15.876 14.2842C15.6148 15.8513 14.2586 17 12.6699 17H4.5C3.67157 17 3 16.3284 3 15.5V9.23828C3 8.57996 3.4294 7.99838 4.05859 7.80469L5.19824 7.4541C6.02983 7.15302 6.59327 6.63008 6.89746 5.9541L8.41113 2.58984C8.66235 2.17643 8.97898 2 9.32324 2H9.56055Z"/></svg></button>
+      </div>`;
+
+    const body = wrapper.querySelector('.claude-body');
+    const cursor = document.createElement('span');
+    cursor.className = 'stream-cursor';
+    body.appendChild(cursor);
+    messagesInner.appendChild(wrapper);
+    scrollToBottom();
+
+    // Store raw html for iterate panel
+    iterateSourceHtml = html;
+
+    streamInto(body, cursor, html, () => {
+      isStreaming = false;
+      sendBtn.disabled = inputField.value.trim() === '';
+      // Show iterate CTA after streaming finishes
+      appendIterateCta(wrapper, html);
+    });
+  }
+
+  // ── Iterate CTA ───────────────────────────────────────────────────
+  function appendIterateCta(wrapper, html) {
+    const cta = document.createElement('button');
+    cta.className = 'iterate-cta';
+    cta.id = 'iterate-cta';
+    cta.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.3857 2.50977C14.3486 2.71054 17.5 5.98724 17.5 10C17.5 14.1421 14.1421 17.5 10 17.5C5.85786 17.5 2.5 14.1421 2.5 10C2.5 7.54619 3.67878 5.3677 5.49902 4H3C2.72386 4 2.5 3.77614 2.5 3.5C2.5 3.22386 2.72386 3 3 3H6.5L7 3.5V7C7 7.27614 6.77614 7.5 6.5 7.5C6.22386 7.5 6 7.27614 6 7V4.87891C4.4782 6.06926 3.5 7.91979 3.5 10C3.5 13.5899 6.41015 16.5 10 16.5C13.5899 16.5 16.5 13.5899 16.5 10C16.5 6.5225 13.7691 3.68312 10.335 3.50879C9.72386 3.5 9.5 3.27614 9.5 3C9.5 2.72386 9.72386 2.5 10 2.5L10.3857 2.50977Z"/></svg>
+      Shift to iterate mode to edit and refine
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M8.99962 2C12.3133 2 14.9996 4.68629 14.9996 8C14.9996 11.3137 12.3133 14 8.99962 14H2.49962C2.12113 13.9998 1.96224 13.5181 2.1334 13.1602L3.93516 11.2178C3.34317 10.2878 2.99962 9.18343 2.99962 8C2.99962 4.68643 5.68609 2.00022 8.99962 2Z"/><path d="M16.5445 9.72754C15.943 9.53418 15.6324 10.084 15.7369 10.3955C15.9073 10.8986 16.0006 11.438 16.0006 12C16.0006 13.1123 15.6376 14.1386 15.024 14.9687C14.8811 15.1621 14.8956 15.4302 15.0592 15.6064L16.3531 17H11.0006C9.54519 17 8.23527 16.3782 7.32091 15.3848L7.07091 15.1103C6.88996 14.9645 6.62535 14.9606 6.43907 15.1143C6.25267 15.2682 6.20668 15.529 6.31603 15.7344L6.58458 16.0625C7.68048 17.253 9.25377 18 11.0006 18H17.5006C17.8791 17.8822 17.9586 17.7002 18.038 17.5181L17.8668 17.1602L16.0631 15.2178C16.6554 14.2876 17.0006 13.1837 17.0006 12C17.0006 11.3271 16.8891 10.6792 16.6842 10.0742L16.5445 9.72754Z"/></svg>`;
+    cta.addEventListener('click', () => openIteratePanel(html, cta));
+    wrapper.appendChild(cta);
+    scrollToBottom();
+  }
+
+  // ── Iterate panel ─────────────────────────────────────────────────
+  function openIteratePanel(html, ctaEl) {
+    if (iterateOpen) return;
+    iterateOpen = true;
+
+    // Hide the CTA, show badge
+    if (ctaEl) ctaEl.classList.add('hidden');
+    iterateBadge.classList.add('visible');
+    app.classList.add('iterate-open');
+
+    // Reset versions
+    versions = [];
+    versionTabs.innerHTML = '';
+    versionContentWrap.innerHTML = '';
+
+    // Seed Version 1 with the response content
+    addVersion('Version 1', html, true);
+
+    // Update input placeholder
+    inputField.placeholder = 'Describe what to change…';
+    scrollToBottom();
+  }
+
+  function closeIteratePanel() {
+    if (!iterateOpen) return;
+    iterateOpen = false;
+    app.classList.remove('iterate-open');
+    iterateBadge.classList.remove('visible');
+    dismissVersionToolbar();
+    clearContext();
+    inputField.placeholder = 'Reply to Claude…';
+
+    // Re-show iterate CTA
+    document.getElementById('iterate-cta')?.classList.remove('hidden');
+  }
+
+  function addVersion(label, html, activate = false) {
+    const id = 'v-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    versions.push({ id, label, html });
+
+    // Tab
+    const tab = document.createElement('button');
+    tab.className = 'version-tab' + (activate ? ' active' : '');
+    tab.dataset.id = id;
+    tab.innerHTML = `<span class="tab-dot"></span>${label}`;
+    tab.addEventListener('click', () => activateVersion(id));
+    versionTabs.appendChild(tab);
+
+    // "+" tab button (only once, always at end)
+    let addBtn = versionTabs.querySelector('.tab-new-btn');
+    if (!addBtn) {
+      addBtn = document.createElement('button');
+      addBtn.className = 'tab-new-btn';
+      addBtn.title = 'Add version';
+      addBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>`;
+    }
+    versionTabs.appendChild(addBtn);
+
+    // Panel
+    const panel = document.createElement('div');
+    panel.className = 'version-panel' + (activate ? ' active' : '');
+    panel.dataset.id = id;
+    panel.innerHTML = `
+      <div class="version-label">${label}</div>
+      <div class="version-text" contenteditable="true" spellcheck="false">${html}</div>`;
+
+    // Selection toolbar on version text
+    const vText = panel.querySelector('.version-text');
+    vText.addEventListener('mouseup', onVersionTextMouseup);
+
+    versionContentWrap.appendChild(panel);
+
+    if (activate) activateVersion(id);
+    return id;
+  }
+
+  function activateVersion(id) {
+    activeVersionId = id;
+    versionTabs.querySelectorAll('.version-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.id === id);
+    });
+    versionContentWrap.querySelectorAll('.version-panel').forEach(p => {
+      p.classList.toggle('active', p.dataset.id === id);
+    });
+    dismissVersionToolbar();
+  }
+
+  // ── Generate new version ──────────────────────────────────────────
+  function generateNewVersion(contextSel, instruction) {
+    const vNum = versions.length + 1;
+    const label = `Version ${vNum}`;
+
+    // Add skeleton panel
+    const id = addVersion(label, `<div class="skeleton-wrap">
+      <div class="skeleton-line" style="width:96%"></div>
+      <div class="skeleton-line" style="width:88%"></div>
+      <div class="skeleton-line" style="width:92%"></div>
+      <div class="skeleton-line" style="width:75%"></div>
+      <div class="skeleton-line" style="width:83%"></div>
+    </div>`, true);
+
+    // After a realistic delay, stream in the variant
+    setTimeout(() => {
+      const variant = VERSION_VARIANTS[variantIdx % VERSION_VARIANTS.length];
+      variantIdx++;
+
+      const panel = versionContentWrap.querySelector(`.version-panel[data-id="${id}"]`);
+      const vText = panel.querySelector('.version-text');
+      vText.innerHTML = '';
+      vText.contentEditable = 'true';
+
+      // Re-attach selection listener
+      vText.addEventListener('mouseup', onVersionTextMouseup);
+
+      isStreaming = true;
+      const cursor = document.createElement('span');
+      cursor.className = 'stream-cursor';
+      vText.appendChild(cursor);
+
+      streamInto(vText, cursor, variant, () => {
+        isStreaming = false;
+        sendBtn.disabled = inputField.value.trim() === '';
+        // Update stored html
+        const v = versions.find(v => v.id === id);
+        if (v) v.html = variant;
+      });
+    }, 600);
+  }
+
+  // ── Version text selection toolbar ───────────────────────────────
+  let mouseIsDown = false;
+  document.addEventListener('mousedown', () => { mouseIsDown = true; });
+  document.addEventListener('mouseup',   () => { mouseIsDown = false; });
+
+  function onVersionTextMouseup(e) {
+    setTimeout(() => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.toString().trim().length < 2) {
+        dismissVersionToolbar();
+        return;
+      }
+
+      const selectedText = sel.toString().trim();
+      const range = sel.getRangeAt(0);
+
+      // Check it's inside a version-text
+      let el = range.commonAncestorContainer;
+      if (el.nodeType === 3) el = el.parentElement;
+      if (!el.closest?.('.version-text')) { dismissVersionToolbar(); return; }
+
+      const rect = range.getBoundingClientRect();
+      const tbW = 280;
+      let left = rect.right - tbW;
+      let top  = rect.bottom + 8;
+      left = Math.max(8, Math.min(left, window.innerWidth - tbW - 8));
+      if (top + 60 > window.innerHeight) top = rect.top - 52;
+
+      versionToolbar.style.left = left + 'px';
+      versionToolbar.style.top  = top  + 'px';
+      versionToolbar.classList.add('visible');
+      versionToolbar._selectedText = selectedText;
+    }, 20);
+  }
+
+  // Dismiss version toolbar on outside click
+  document.addEventListener('mouseup', e => {
+    if (!versionToolbar.contains(e.target)) {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) dismissVersionToolbar();
+    }
+  }, true);
+
+  function dismissVersionToolbar() {
+    versionToolbar.classList.remove('visible');
+  }
+
+  document.getElementById('vt-copy-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(versionToolbar._selectedText || '').catch(() => {});
+    dismissVersionToolbar();
+    window.getSelection().removeAllRanges();
+  });
+
+  document.getElementById('vt-ask-btn').addEventListener('click', () => {
+    loadContextIntoInput(versionToolbar._selectedText || '');
+    dismissVersionToolbar();
+    window.getSelection().removeAllRanges();
+  });
+
+  document.getElementById('vt-iterate-btn').addEventListener('click', () => {
+    loadContextIntoInput(versionToolbar._selectedText || '');
+    dismissVersionToolbar();
+    window.getSelection().removeAllRanges();
+  });
+
+  function loadContextIntoInput(text) {
+    const truncated = text.length > 100 ? text.slice(0, 100) + '…' : text;
+    inputContextText.textContent = truncated;
+    inputContext.classList.add('visible');
+    inputField.focus();
+    sendBtn.disabled = inputField.value.trim() === '';
+  }
+
+  function clearContext() {
+    inputContext.classList.remove('visible');
+    inputContextText.textContent = '';
+  }
+
+  // ── Streaming engine ──────────────────────────────────────────────
+  function streamInto(container, cursor, html, onDone) {
+    const plainLen = html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').length;
+    let charIdx = 0;
+    function tick() {
+      if (charIdx >= plainLen) { cursor.remove(); onDone(); return; }
+      charIdx = Math.min(charIdx + Math.floor(Math.random() * 4) + 1, plainLen);
+      container.innerHTML = renderUpTo(html, charIdx);
+      container.appendChild(cursor);
+      scrollToBottom();
+      setTimeout(tick, Math.random() * 16 + 5);
+    }
+    tick();
+  }
+
+  function renderUpTo(html, target) {
+    let seen = 0, out = '', i = 0;
+    const stack = [];
+    while (i < html.length) {
+      if (html[i] === '<') {
+        const end = html.indexOf('>', i); if (end === -1) break;
+        const tag = html.slice(i, end + 1);
+        out += tag;
+        if (!tag.startsWith('</') && !tag.endsWith('/>')) {
+          const m = tag.match(/^<(\w+)/); if (m) stack.push(m[1]);
+        } else if (tag.startsWith('</')) stack.pop();
+        i = end + 1;
+      } else if (html[i] === '&') {
+        const end = html.indexOf(';', i);
+        if (end !== -1 && end - i <= 8) {
+          if (seen < target) { out += html.slice(i, end + 1); seen++; } else break;
+          i = end + 1;
+        } else {
+          if (seen < target) { out += html[i]; seen++; i++; } else break;
+        }
+      } else {
+        if (seen < target) { out += html[i]; seen++; i++; } else break;
+      }
+    }
+    while (stack.length) out += `</${stack.pop()}>`;
+    return out;
+  }
+
+  // ── Utils ─────────────────────────────────────────────────────────
+  function scrollToBottom() { messagesWrap.scrollTop = messagesWrap.scrollHeight; }
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function newChat() {
+    closeIteratePanel();
+    isStreaming = false;
+    messagesInner.innerHTML = `
+      <div class="empty-state" id="empty-state">
+        <svg width="36" height="36" viewBox="0 0 100 100" fill="currentColor"><path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/></svg>
+        <p>Ask something to get started</p>
+      </div>`;
+    convoTitle.textContent = 'New conversation';
+    inputField.value = ''; inputField.style.height = 'auto';
+    sendBtn.disabled = true; messageCount = 0; responseIdx = 0;
+  }
+</script>
+</body>
+</html>

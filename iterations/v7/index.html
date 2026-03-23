@@ -1,0 +1,1842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude — v7 Iterate Canvas</title>
+  <style>
+    /* ── Fonts ──────────────────────────────────────────────────────────── */
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+
+    /* ── Design tokens ──────────────────────────────────────────────────── */
+    :root {
+      --bg-sidebar: #141413;
+      --bg-main:    #f5f4ef;
+      --bg-card:    #ffffff;
+      --bg-input:   #ededea;
+      --bg-human:   #f0efea;
+      --text-100:   #1c1917;
+      --text-300:   #6b6860;
+      --text-400:   #9b9892;
+      --text-500:   #b5b2ab;
+      --accent:     #c15f3c;
+      --border:     #e4e2dc;
+      --border-md:  #d1cec8;
+      --blue:       #4f9ee8;
+      --blue-bg:    rgba(79,158,232,.12);
+      --blue-badge: rgba(79,158,232,.16);
+      --dot-color:  #cac7c0;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg-main);
+      color: var(--text-100);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── App shell ──────────────────────────────────────────────────────── */
+    .app { display: flex; height: 100vh; }
+
+    /* ── Sidebar ────────────────────────────────────────────────────────── */
+    .sidebar {
+      width: 48px;
+      background: var(--bg-sidebar);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 0 12px;
+      flex-shrink: 0;
+      z-index: 40;
+    }
+    .sb-top  { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
+    .sb-btm  { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .sb-btn  {
+      width: 36px; height: 36px;
+      border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,.38);
+      transition: background 120ms, color 120ms;
+    }
+    .sb-btn:hover  { background: rgba(255,255,255,.07); color: rgba(255,255,255,.7); }
+    .sb-btn.active { color: rgba(255,255,255,.82); }
+    .sb-divider { width: 20px; height: 1px; background: rgba(255,255,255,.07); margin: 4px 0; }
+    .user-av {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 600; color: white;
+      cursor: pointer; letter-spacing: .02em;
+    }
+
+    /* ── Main wrap ──────────────────────────────────────────────────────── */
+    .main-wrap { flex: 1; position: relative; overflow: hidden; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       HOME SCREEN
+       ═══════════════════════════════════════════════════════════════════════ */
+    #home-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: var(--bg-main);
+      transition: opacity 260ms ease, transform 260ms ease;
+    }
+    #home-screen.hiding {
+      opacity: 0; transform: translateY(-10px); pointer-events: none;
+    }
+
+    .greeting-row {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 26px;
+    }
+    .greeting-logo { width: 40px; height: 40px; color: var(--accent); flex-shrink: 0; }
+    .greeting-text {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 34px; font-weight: 300;
+      color: var(--text-100);
+    }
+
+    /* Home input container */
+    .home-input-wrap {
+      width: 600px; max-width: calc(100vw - 80px);
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 16px 16px 12px;
+      box-shadow: 0 0 0 1px var(--border), 0 2px 8px rgba(0,0,0,.04);
+    }
+    .home-input-wrap:focus-within {
+      box-shadow: 0 0 0 1.5px rgba(0,0,0,.14), 0 2px 10px rgba(0,0,0,.06);
+    }
+    .home-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 15px; font-family: inherit; color: var(--text-100);
+      resize: none; outline: none; line-height: 1.55;
+      min-height: 24px; max-height: 160px;
+      margin-bottom: 12px;
+    }
+    .home-field::placeholder { color: var(--text-400); }
+
+    /* Toolbar row */
+    .input-tb { display: flex; align-items: center; justify-content: space-between; }
+    .tb-left  { display: flex; align-items: center; gap: 5px; }
+    .tb-right { display: flex; align-items: center; gap: 6px; }
+
+    /* Plus circle button */
+    .plus-circle-btn {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1.5px solid var(--border-md);
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-400);
+      transition: border-color 100ms, background 100ms, color 100ms;
+    }
+    .plus-circle-btn:hover { border-color: var(--text-400); color: var(--text-300); background: rgba(0,0,0,.04); }
+
+    /* Iterate indicator (pencil-ruler icon, shown when iterate mode on) */
+    #iterate-indicator {
+      display: none; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 7px;
+      color: var(--blue); background: var(--blue-badge);
+    }
+    #iterate-indicator.on { display: flex; }
+
+    /* Model selector */
+    .model-btn {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 8px; border-radius: 7px; border: none;
+      background: transparent; cursor: pointer; font-family: inherit;
+      font-size: 13px; color: var(--text-400);
+      transition: background 100ms, color 100ms;
+    }
+    .model-btn:hover { background: rgba(0,0,0,.06); color: var(--text-300); }
+
+    /* Voice / send */
+    .voice-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1px solid var(--border); background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: background 100ms;
+    }
+    .voice-btn:hover { background: rgba(0,0,0,.06); }
+    .send-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: none; background: var(--text-100); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 100ms, transform 80ms, opacity 150ms;
+    }
+    .send-btn:hover:not(:disabled) { background: #333; }
+    .send-btn:active:not(:disabled) { transform: scale(.91); }
+    .send-btn:disabled { background: #c4c1ba; cursor: not-allowed; opacity: .7; }
+
+    .home-disclaimer {
+      margin-top: 10px; font-size: 11.5px; color: var(--text-500); text-align: center;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       + DROPDOWN MENU
+       ═══════════════════════════════════════════════════════════════════════ */
+    #plus-menu {
+      position: fixed; z-index: 200;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.1), 0 2px 6px rgba(0,0,0,.06);
+      padding: 5px;
+      width: 220px;
+      opacity: 0; pointer-events: none;
+      transform: translateY(-6px) scale(.97);
+      transform-origin: top left;
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+    #plus-menu.open {
+      opacity: 1; pointer-events: auto; transform: none;
+    }
+    .menu-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border-radius: 8px;
+      cursor: pointer; font-size: 13.5px; color: var(--text-100);
+      transition: background 80ms;
+    }
+    .menu-item:hover { background: var(--bg-main); }
+    .menu-icon { width: 16px; height: 16px; color: var(--text-400); flex-shrink: 0; }
+    .menu-item.iterate-item .menu-icon { color: var(--accent); }
+    .menu-item.iterate-item.active-item { background: rgba(193,95,60,.06); }
+    .menu-item.iterate-item.active-item .menu-label { color: var(--accent); font-weight: 500; }
+    .menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       ITERATE SCREEN
+       ═══════════════════════════════════════════════════════════════════════ */
+    #iterate-screen {
+      position: absolute; inset: 0;
+      display: flex;
+      opacity: 0; pointer-events: none;
+      transition: opacity 300ms ease;
+    }
+    #iterate-screen.visible { opacity: 1; pointer-events: auto; }
+
+    /* ── Canvas pane (left ~62%) ─────────────────────────────────────────── */
+    #canvas-pane {
+      flex: 1; min-width: 0;
+      background: var(--bg-main);
+      background-image: radial-gradient(circle, var(--dot-color) 1.2px, transparent 1.2px);
+      background-size: 22px 22px;
+      position: relative; overflow: hidden;
+      cursor: default;
+    }
+
+    /* ── Resize handle between canvas and chat ───────────────────────────── */
+    #pane-resizer {
+      flex-shrink: 0;
+      width: 5px;
+      background: transparent;
+      cursor: col-resize;
+      position: relative;
+      z-index: 30;
+      transition: background 120ms;
+    }
+    #pane-resizer::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 2px; width: 1px;
+      background: var(--border);
+      transition: background 120ms, width 120ms, left 120ms;
+    }
+    #pane-resizer:hover::after,
+    #pane-resizer.resizing::after {
+      left: 1px; width: 3px;
+      background: var(--blue);
+    }
+
+    /* The infinite pannable/zoomable world */
+    #canvas-world {
+      position: absolute;
+      top: 0; left: 0;
+      transform-origin: 0 0;
+      will-change: transform;
+      padding: 40px 40px 120px;
+    }
+
+    /* Free-form canvas layout — blocks are absolutely positioned inside */
+    #canvas-layout {
+      position: relative;
+      min-width: 900px; min-height: 700px;
+    }
+
+    /* Block widths for free-form layout */
+    .ver-block  { width: 520px; }
+    .sticky-blk { width: 290px; }
+    .file-blk   { width: 290px; }
+
+    /* Drag affordance */
+    .block-drag-area { cursor: grab; }
+    .block-drag-area:active { cursor: grabbing; }
+    .block.is-dragging {
+      box-shadow: 0 12px 32px rgba(0,0,0,.14), 0 0 0 1.5px rgba(0,0,0,.08);
+      z-index: 20;
+      cursor: grabbing !important;
+    }
+
+    /* ── Unified bottom bar (zoom + canvas tools) ───────────────────────── */
+    #canvas-bar {
+      position: absolute; bottom: 16px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; align-items: center; gap: 1px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 4px;
+      box-shadow: 0 1px 5px rgba(0,0,0,.07);
+      z-index: 10; user-select: none; white-space: nowrap;
+    }
+    .cbar-btn {
+      width: 30px; height: 30px; border-radius: 7px;
+      border: none; background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-400);
+      transition: background 90ms, color 90ms;
+    }
+    .cbar-btn:hover { background: var(--bg-main); color: var(--text-100); }
+    .cbar-pct {
+      min-width: 44px; height: 30px; padding: 0 4px;
+      border: none; background: transparent; cursor: pointer; font-family: inherit;
+      font-size: 12px; font-weight: 500; color: var(--text-400);
+      border-radius: 7px; transition: background 90ms, color 90ms;
+    }
+    .cbar-pct:hover { background: var(--bg-main); color: var(--text-300); }
+    .cbar-sep {
+      width: 1px; height: 18px; background: var(--border); margin: 0 3px; flex-shrink: 0;
+    }
+
+    /* ── Inline selection toolbar ────────────────────────────────────────── */
+    #inline-sel-tb {
+      position: fixed; z-index: 400;
+      display: flex; align-items: center; gap: 2px;
+      background: var(--bg-sidebar);
+      border-radius: 9px; padding: 3px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.18), 0 1px 4px rgba(0,0,0,.12);
+      opacity: 0; pointer-events: none;
+      transform: translateY(4px);
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+    #inline-sel-tb.show {
+      opacity: 1; pointer-events: auto; transform: none;
+    }
+    .ist-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 10px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer; font-family: inherit;
+      font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,.7);
+      transition: background 80ms, color 80ms;
+    }
+    .ist-btn:hover { background: rgba(255,255,255,.1); color: white; }
+    .ist-sep { width: 1px; height: 14px; background: rgba(255,255,255,.12); margin: 0 1px; }
+
+    /* ── Inline prompt card ──────────────────────────────────────────────── */
+    #inline-prompt-card {
+      position: fixed; z-index: 401;
+      width: 360px;
+      background: white;
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.06);
+      opacity: 0; pointer-events: none;
+      transform: translateY(6px) scale(.98);
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+    #inline-prompt-card.show {
+      opacity: 1; pointer-events: auto; transform: none;
+    }
+    #ipc-field {
+      width: 100%; border: none; background: transparent; outline: none;
+      font-size: 14px; font-family: inherit; color: var(--text-100);
+      resize: none; line-height: 1.55; min-height: 22px; max-height: 100px;
+      margin-bottom: 10px;
+    }
+    #ipc-field::placeholder { color: var(--text-400); }
+    .ipc-row {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #ipc-plus {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1.5px solid var(--border-md); background: white;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: border-color 100ms, background 100ms;
+    }
+    #ipc-plus:hover { border-color: var(--text-400); background: rgba(0,0,0,.03); }
+    #ipc-send {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: none; background: var(--accent); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 100ms, transform 80ms;
+    }
+    #ipc-send:hover { background: #a84e2e; }
+    #ipc-send:active { transform: scale(.9); }
+
+    /* Inline skeleton (full-width, 5-line placeholder) */
+    .inline-skel { margin: 4px 0; }
+    .inline-skel .skel { height: 20px; margin-bottom: 11px; }
+    .inline-skel .skel:last-child { width: 72% !important; }
+
+    /* ── Right-click context menu ────────────────────────────────────────── */
+    #ctx-menu {
+      position: fixed; z-index: 500;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 4px;
+      min-width: 148px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.1), 0 1px 4px rgba(0,0,0,.06);
+      opacity: 0; pointer-events: none;
+      transform: scale(.96); transform-origin: top left;
+      transition: opacity 120ms ease, transform 120ms ease;
+    }
+    #ctx-menu.show {
+      opacity: 1; pointer-events: auto; transform: none;
+    }
+    #ctx-delete {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 10px; border-radius: 7px;
+      color: #d84040; cursor: pointer; font-size: 13.5px;
+      transition: background 80ms;
+    }
+    #ctx-delete:hover { background: #fff2f2; }
+
+    /* ── Blocks ─────────────────────────────────────────────────────────── */
+    .block {
+      position: relative;
+      background: var(--bg-card);
+      border-radius: 12px;
+      border: 2px solid transparent;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07), 0 0 0 1px rgba(0,0,0,.04);
+      overflow: hidden;
+      transition: border-color 160ms, box-shadow 160ms;
+    }
+    .block.selected {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(79,158,232,.1), 0 1px 4px rgba(0,0,0,.07);
+    }
+
+    /* Checkbox (top-left hover-reveal) */
+    .blk-check {
+      position: absolute; top: 10px; left: 10px;
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 130ms;
+      background: transparent; border: none; cursor: pointer; padding: 0;
+      color: var(--text-500); z-index: 10;
+      border-radius: 4px;
+    }
+    .blk-check.peek   { opacity: 1; }
+    .block.selected .blk-check { opacity: 1; color: var(--blue); }
+
+    /* Block inner — padding shifts down when selected */
+    .blk-inner {
+      padding: 20px;
+      transition: padding-top 160ms;
+    }
+    .block.selected .blk-inner { padding-top: 38px; }
+
+    /* ── Version block ──────────────────────────────────────────────────── */
+    .ver-block .blk-inner { padding: 22px 24px 24px; }
+    .ver-block.selected .blk-inner { padding-top: 40px; }
+
+    .ver-label {
+      font-size: 12.5px; font-weight: 600; color: var(--text-400);
+      letter-spacing: .02em; margin-bottom: 14px;
+    }
+    .ver-body {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 14.5px; font-weight: 400; line-height: 1.78;
+      color: var(--text-100);
+      outline: none;
+      border-radius: 4px;
+    }
+    .ver-body p + p { margin-top: 12px; }
+    .ver-body[contenteditable="true"] { cursor: text; }
+    .ver-body[contenteditable="true"]:focus {
+      box-shadow: 0 0 0 2px rgba(79,158,232,.22);
+    }
+
+    /* ── Sticky note block ──────────────────────────────────────────────── */
+    .block.sticky-blk {
+      background: #fffef5;
+      border-color: #e3d98a;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03);
+    }
+    .block.sticky-blk.selected { border-color: var(--blue); }
+    .sticky-blk .blk-inner { padding: 14px 16px; }
+    .sticky-blk.selected .blk-inner { padding-top: 32px; }
+
+    .sticky-hd {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .08em; color: #b09d30; margin-bottom: 8px;
+    }
+    .sticky-ta {
+      width: 100%; border: none; background: transparent; outline: none;
+      font-size: 13.5px; font-family: 'Tiempos Headline', Georgia, serif;
+      color: var(--text-100); line-height: 1.65;
+      resize: none; min-height: 72px; max-height: 220px;
+    }
+    .sticky-ta::placeholder { color: #c4ba6a; font-style: italic; }
+
+    /* ── File block ─────────────────────────────────────────────────────── */
+    .file-blk .blk-inner {
+      padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    }
+    .file-blk.selected .blk-inner { padding-top: 30px; }
+    .file-ic {
+      width: 38px; height: 38px; border-radius: 8px;
+      background: #f0efea; display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); flex-shrink: 0;
+    }
+    .file-meta-wrap { flex: 1; min-width: 0; }
+    .file-name {
+      font-size: 13px; font-weight: 500; color: var(--text-100);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-type { font-size: 11.5px; color: var(--text-400); margin-top: 1px; }
+
+    /* ── Skeleton lines ─────────────────────────────────────────────────── */
+    .skel {
+      height: 14px; border-radius: 5px; margin-bottom: 10px;
+      background: linear-gradient(90deg,#eeede8 25%,#e5e3de 50%,#eeede8 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.3s ease infinite;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* Stream cursor */
+    .scursor {
+      display: inline-block; width: 2px; height: 13px;
+      background: var(--text-400); border-radius: 1px;
+      vertical-align: text-bottom; margin-left: 1px;
+      animation: blink .85s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       CHAT PANE (right ~38%)
+       ═══════════════════════════════════════════════════════════════════════ */
+    #chat-pane {
+      flex: 0 0 auto;
+      width: 420px;        /* default width — JS will override via style.width */
+      min-width: 360px;
+      max-width: 720px;
+      display: flex; flex-direction: column;
+      background: white;
+      overflow: hidden;
+    }
+
+    /* Topbar */
+    #chat-topbar {
+      height: 48px; flex-shrink: 0;
+      display: flex; align-items: center;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-title {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 14px; font-weight: 500; color: var(--text-100);
+      background: transparent; border: none; cursor: pointer;
+      font-family: inherit; border-radius: 6px;
+      padding: 4px 7px; margin: 0 -7px;
+      transition: background 100ms;
+    }
+    .topbar-title:hover { background: rgba(0,0,0,.05); }
+
+    /* Messages */
+    #msgs-wrap {
+      flex: 1; overflow-y: auto;
+      padding: 24px 20px;
+      scroll-behavior: smooth;
+    }
+    #msgs-wrap::-webkit-scrollbar { width: 5px; }
+    #msgs-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,.09); border-radius: 3px; }
+    #msgs-inner { display: flex; flex-direction: column; gap: 22px; }
+
+    /* Human message */
+    .msg-human { display: flex; flex-direction: column; align-items: flex-end; }
+    .human-bub {
+      background: var(--bg-human);
+      border-radius: 16px 16px 3px 16px;
+      padding: 10px 14px;
+      font-size: 14px; line-height: 1.55;
+      color: var(--text-100); max-width: 90%; word-break: break-word;
+    }
+
+    /* Human message with selection context */
+    .ctx-bub {
+      background: var(--bg-human);
+      border-radius: 16px 16px 3px 16px;
+      padding: 12px 14px;
+      max-width: 90%;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .ctx-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--blue-badge); color: #2873b5;
+      border-radius: 100px; padding: 3px 10px;
+      font-size: 12px; font-weight: 500; align-self: flex-start;
+    }
+    .ctx-text { font-size: 14px; color: var(--text-100); line-height: 1.5; }
+
+    /* Claude message */
+    .msg-claude { display: flex; flex-direction: column; gap: 6px; }
+    .claude-hd  { display: flex; align-items: center; gap: 8px; }
+    .claude-logo { width: 17px; height: 17px; color: var(--accent); flex-shrink: 0; }
+    .claude-nm   { font-size: 12.5px; font-weight: 500; color: var(--text-400); }
+    .claude-txt  {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 14.5px; line-height: 1.72;
+      color: var(--text-100); padding-left: 25px;
+    }
+
+    /* ── Chat input area ─────────────────────────────────────────────────── */
+    #chat-input-area { flex-shrink: 0; padding: 8px 14px 14px; }
+
+    #chat-box {
+      background: var(--bg-input);
+      border-radius: 14px;
+      padding: 10px 12px 8px 14px;
+      display: flex; flex-direction: column; gap: 8px;
+      transition: box-shadow 150ms;
+    }
+    #chat-box:focus-within {
+      box-shadow: 0 0 0 1.5px rgba(0,0,0,.12);
+    }
+
+    .chat-top { display: flex; align-items: flex-start; gap: 8px; min-height: 22px; }
+
+    /* Selection badge inside input */
+    #sel-badge {
+      display: none; align-items: center; gap: 5px;
+      background: var(--blue-badge); color: #2873b5;
+      border-radius: 100px; padding: 3px 10px 3px 8px;
+      font-size: 12px; font-weight: 500;
+      white-space: nowrap; flex-shrink: 0;
+      align-self: center;
+    }
+    #sel-badge.on { display: flex; }
+
+    #chat-field {
+      flex: 1; border: none; background: transparent; outline: none;
+      font-size: 14px; font-family: inherit; color: var(--text-100);
+      resize: none; line-height: 1.5;
+      min-height: 22px; max-height: 100px;
+    }
+    #chat-field::placeholder { color: var(--text-400); }
+
+    .chat-tb { display: flex; align-items: center; justify-content: space-between; }
+
+    .disclaimer {
+      text-align: center; font-size: 11px; color: var(--text-500); margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sb-top">
+      <!-- App / panel icon -->
+      <button class="sb-btn active">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M9 3v18"/>
+        </svg>
+      </button>
+      <!-- Search -->
+      <button class="sb-btn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.3-4.3"/>
+        </svg>
+      </button>
+      <!-- Attachments -->
+      <button class="sb-btn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+        </svg>
+      </button>
+      <!-- Chat -->
+      <button class="sb-btn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </button>
+      <div class="sb-divider"></div>
+      <!-- Star -->
+      <button class="sb-btn">
+        <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor">
+          <path d="M239.2,97.29a15.89,15.89,0,0,0-13-10.78l-59.06-4.92L144.27,26.8a15.91,15.91,0,0,0-29.3,0L92.86,81.59,33.8,86.51A15.89,15.89,0,0,0,20.8,97.29,16.46,16.46,0,0,0,25.95,115l45,38.83L57.17,211.8a16.38,16.38,0,0,0,6.86,17.67,15.84,15.84,0,0,0,18.62-.8L128,193.38l45.35,35.29a15.86,15.86,0,0,0,18.62.8,16.38,16.38,0,0,0,6.86-17.67l-13.78-58-45-38.83A16.46,16.46,0,0,0,239.2,97.29Z"/>
+        </svg>
+      </button>
+    </div>
+    <div class="sb-btm">
+      <div class="user-av">RK</div>
+    </div>
+  </aside>
+
+  <!-- ── Main wrap ──────────────────────────────────────────────────────── -->
+  <div class="main-wrap">
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         HOME SCREEN
+         ══════════════════════════════════════════════════════════════════════ -->
+    <div id="home-screen">
+      <div class="greeting-row">
+        <!-- Claude logo -->
+        <svg class="greeting-logo" viewBox="0 0 100 100" fill="currentColor">
+          <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+        </svg>
+        <span class="greeting-text">Good afternoon, Rakshit</span>
+      </div>
+
+      <div class="home-input-wrap">
+        <textarea class="home-field" id="home-field" placeholder="How can I help you today?" rows="1"></textarea>
+        <div class="input-tb">
+          <div class="tb-left">
+            <!-- + circle -->
+            <button class="plus-circle-btn" id="home-plus-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+            <!-- Iterate indicator (pencil-ruler, shown when iterate mode active) -->
+            <div id="iterate-indicator">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 7 8.7 2.7a2.41 2.41 0 0 0-3.4 0L2.7 5.3a2.41 2.41 0 0 0 0 3.4L7 13"/>
+                <path d="m8 6 2-2M18 16l2-2"/>
+                <path d="m17 11 4.3 4.3c.94.94.94 2.46 0 3.4l-2.6 2.6c-.94.94-2.46.94-3.4 0L11 17"/>
+                <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+                <path d="m15 5 4 4"/>
+              </svg>
+            </div>
+          </div>
+          <div class="tb-right">
+            <button class="model-btn">
+              Opus 4.6 Extended
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            </button>
+            <!-- Voice (default) -->
+            <button class="voice-btn" id="home-voice">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/>
+              </svg>
+            </button>
+            <!-- Send (shown when text present) -->
+            <button class="send-btn" id="home-send" style="display:none" disabled>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <p class="home-disclaimer">Claude can make mistakes. Please double-check responses.</p>
+    </div><!-- /home-screen -->
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         ITERATE SCREEN
+         ══════════════════════════════════════════════════════════════════════ -->
+    <div id="iterate-screen">
+
+      <!-- ── Canvas pane (left) ─────────────────────────────────────────── -->
+      <div id="canvas-pane">
+
+        <!-- Pannable / zoomable world -->
+        <div id="canvas-world">
+          <div id="canvas-layout"><!-- blocks injected here as absolutely positioned elements --></div>
+        </div>
+
+        <!-- Unified bottom bar (zoom + canvas tools) -->
+        <div id="canvas-bar">
+          <button class="cbar-btn" id="zoom-out" title="Zoom out (−)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/>
+            </svg>
+          </button>
+          <button class="cbar-pct" id="zoom-reset" title="Reset zoom (100%)">100%</button>
+          <button class="cbar-btn" id="zoom-in" title="Zoom in (+)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6M8 11h6"/>
+            </svg>
+          </button>
+          <div class="cbar-sep"></div>
+          <!-- Attach file -->
+          <button class="cbar-btn" id="btn-attach" title="Attach file">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <!-- Add sticky note -->
+          <button class="cbar-btn" id="btn-note" title="Add sticky note">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"/>
+              <path d="M15 3v6h6"/>
+            </svg>
+          </button>
+        </div>
+      </div><!-- /canvas-pane -->
+
+      <!-- ── Resize handle ─────────────────────────────────────────────── -->
+      <div id="pane-resizer" title="Drag to resize"></div>
+
+      <!-- ── Chat pane (right) ──────────────────────────────────────────── -->
+      <div id="chat-pane">
+        <div id="chat-topbar">
+          <button class="topbar-title">
+            Cover letter
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div id="msgs-wrap">
+          <div id="msgs-inner"></div>
+        </div>
+
+        <div id="chat-input-area">
+          <div id="chat-box">
+            <div class="chat-top">
+              <!-- Selection badge (visible when blocks checked) -->
+              <div id="sel-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m9 11 3 3L22 4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                <span id="sel-count">0</span>&nbsp;selected
+              </div>
+              <textarea id="chat-field" placeholder="Reply…" rows="1"></textarea>
+            </div>
+            <div class="chat-tb">
+              <div class="tb-left">
+                <button class="plus-circle-btn" id="chat-plus-btn" style="width:24px;height:24px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="tb-right">
+                <button class="model-btn" style="font-size:12.5px;color:var(--text-500);">
+                  Opus 4.6 extended
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </button>
+                <button class="voice-btn" id="chat-voice" style="width:28px;height:28px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/>
+                  </svg>
+                </button>
+                <button class="send-btn" id="chat-send" style="display:none;width:28px;height:28px;" disabled>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 19V5M5 12l7-7 7 7"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <p class="disclaimer">Claude can make mistakes. Please double-check responses.</p>
+        </div>
+      </div><!-- /chat-pane -->
+
+    </div><!-- /iterate-screen -->
+
+  </div><!-- /main-wrap -->
+</div><!-- /app -->
+
+<!-- ── Inline selection toolbar ──────────────────────────────────────────── -->
+<div id="inline-sel-tb">
+  <button class="ist-btn" id="ist-reply">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+    </svg>
+    Reply
+  </button>
+  <div class="ist-sep"></div>
+  <button class="ist-btn" id="ist-ask">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+    Ask
+  </button>
+</div>
+
+<!-- ── Inline prompt card ─────────────────────────────────────────────────── -->
+<div id="inline-prompt-card">
+  <textarea id="ipc-field" placeholder="What should change?" rows="2"></textarea>
+  <div class="ipc-row">
+    <button id="ipc-plus" title="Add context">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+    </button>
+    <button id="ipc-send" title="Apply change">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- ── Right-click context menu ──────────────────────────────────────────── -->
+<div id="ctx-menu">
+  <div id="ctx-delete">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+      <path d="M10 11v6M14 11v6"/>
+    </svg>
+    Delete
+  </div>
+</div>
+
+<!-- ── + Dropdown menu (shared) ─────────────────────────────────────────── -->
+<div id="plus-menu">
+  <div class="menu-item" data-action="files">
+    <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+    </svg>
+    <span class="menu-label">Add files or photos</span>
+  </div>
+  <div class="menu-item" data-action="screenshot">
+    <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+      <circle cx="12" cy="13" r="3"/>
+    </svg>
+    <span class="menu-label">Take a screenshot</span>
+  </div>
+  <div class="menu-item" data-action="projects">
+    <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    </svg>
+    <span class="menu-label">Add to projects</span>
+  </div>
+  <div class="menu-item" data-action="research">
+    <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m8 11 2 2 4-4"/>
+      <circle cx="11" cy="11" r="8"/>
+      <path d="m21 21-4.3-4.3"/>
+    </svg>
+    <span class="menu-label">Research</span>
+  </div>
+  <div class="menu-sep"></div>
+  <div class="menu-item iterate-item" data-action="iterate">
+    <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 7 8.7 2.7a2.41 2.41 0 0 0-3.4 0L2.7 5.3a2.41 2.41 0 0 0 0 3.4L7 13"/>
+      <path d="m8 6 2-2M18 16l2-2"/>
+      <path d="m17 11 4.3 4.3c.94.94.94 2.46 0 3.4l-2.6 2.6c-.94.94-2.46.94-3.4 0L11 17"/>
+      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
+      <path d="m15 5 4 4"/>
+    </svg>
+    <span class="menu-label">Iterate</span>
+  </div>
+</div><!-- /plus-menu -->
+
+<!-- ── JavaScript ──────────────────────────────────────────────────────── -->
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let iterateOn  = false;
+let isStreaming = false;
+let selectedIds = new Set();
+let versionIdx  = 0;
+
+// Free-form canvas layout tracking
+let nextVersionY = 0;         // y cursor for version column (x = 0)
+let nextSideY    = 0;         // y cursor for side column
+const SIDE_X     = 552;       // x offset for sticky/file blocks
+const VER_GAP    = 20;
+const SIDE_GAP   = 14;
+let lastVersionBlock = null;  // used by autoPanToLatest
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const homeScreen    = document.getElementById('home-screen');
+const iterScreen    = document.getElementById('iterate-screen');
+const homeField     = document.getElementById('home-field');
+const homeVoice     = document.getElementById('home-voice');
+const homeSend      = document.getElementById('home-send');
+const iterIndicator = document.getElementById('iterate-indicator');
+const plusMenu      = document.getElementById('plus-menu');
+const canvasPane    = document.getElementById('canvas-pane');
+const canvasWorld   = document.getElementById('canvas-world');
+const canvasLayout  = document.getElementById('canvas-layout');
+const msgsInner     = document.getElementById('msgs-inner');
+const msgsWrap      = document.getElementById('msgs-wrap');
+const chatField     = document.getElementById('chat-field');
+const chatVoice     = document.getElementById('chat-voice');
+const chatSend      = document.getElementById('chat-send');
+const selBadge      = document.getElementById('sel-badge');
+const selCount      = document.getElementById('sel-count');
+
+// ── Cover-letter content ───────────────────────────────────────────────────
+const V1 = `<p>Dear Hiring Team,</p>
+<p>I'm writing to express my strong interest in the Product Designer role at Anthropic. The opportunity to shape how millions of people experience AI—designing interactions that don't yet have established conventions—is exactly the kind of design challenge I've spent my career preparing for.</p>
+<p>Anthropic's commitment to building AI that is reliable, interpretable, and steerable resonates deeply with how I approach design: with intention, rigor, and an unwavering focus on the people I'm designing for.</p>
+<p>Over the past several years, I've led end-to-end product design for complex platforms used at scale. I redesigned core workflow experiences, reducing time-on-task by 40% and increasing user retention by 25%. I thrive in environments where ambiguity is the starting point—where I need to understand emerging capabilities, prototype rapidly, and iterate toward clarity.</p>
+<p>What draws me to Anthropic is the design team's position at the intersection of craft, research, and product intuition. The idea of designing around capabilities that are still emerging—shaping whether Claude feels like a tool or a trusted collaborator—is a once-in-a-generation opportunity.</p>
+<p>I bring a strong craft sensibility paired with technical fluency. I prototype in code (HTML, CSS, JavaScript) to communicate ideas with the fidelity they deserve, and I stay close to the underlying technology so my design decisions reflect what's truly possible.</p>
+<p>I'd welcome the chance to share my portfolio and discuss how my experience could contribute to Anthropic's mission.</p>
+<p>Warm regards,<br>[Your Name]</p>`;
+
+const V2 = `<p>Dear Hiring Team,</p>
+<p>I'm writing to express my strong interest in the Product Designer role at Anthropic. The opportunity to shape how millions of people experience AI—designing interactions that don't yet have established conventions—is exactly the kind of design challenge I've spent my career preparing for.</p>
+<p>Over the past five years, I've led end-to-end product design for complex, data-rich platforms at massive scale. As a Senior Product Designer at Groww—a trading platform serving over 60 million customers—I owned the Derivatives pod, building tools for professional traders managing high-frequency workflows. My flagship project, Option Chain, was a year-long initiative to design a customizable interface for real-time derivatives data. I shipped it in two phases—an MVP to validate core workflows, then a full rollout across terminal, web, and mobile—with micro-interactions like center-spine snapping and custom haptics for frame-level precision. Over 300,000 traders use it daily.</p>
+<p>This experience of designing for speed, density, and trust under real-time constraints feels directly relevant to designing AI interfaces where responsiveness and clarity are everything.</p>
+<p>I got a taste of AI product design when I led the Trading APIs Platform at Groww—a product that lets traders build AI-powered agents and automated strategies. I designed it to manage AI's unpredictable outputs, clearly surfacing errors, states, and constraints in ways that kept users in control and confident.</p>
+<p>I bring strong craft paired with technical fluency—I prototype in code so ideas land with full fidelity. I deeply believe in Anthropic's mission and would be honored to help build the next generation of human-AI interaction.</p>
+<p>Warm regards,<br>Rakshit</p>`;
+
+const CLAUDE_REPLY_1 = 'Here is your cover letter.';
+const CLAUDE_REPLY_2 = 'Here is your updated cover letter, written to reflect your personal journey—past, present, and future—and tailored specifically to Anthropic.';
+
+// ── Home field ─────────────────────────────────────────────────────────────
+homeField.addEventListener('input', () => {
+  homeField.style.height = 'auto';
+  homeField.style.height = Math.min(homeField.scrollHeight, 160) + 'px';
+  syncHomeButtons();
+});
+homeField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!homeSend.disabled) submitHome(); }
+});
+
+function syncHomeButtons() {
+  const has = homeField.value.trim().length > 0;
+  homeVoice.style.display = has ? 'none' : '';
+  homeSend.style.display  = has ? ''     : 'none';
+  homeSend.disabled       = !has || isStreaming;
+}
+
+// ── Chat field ─────────────────────────────────────────────────────────────
+chatField.addEventListener('input', () => {
+  chatField.style.height = 'auto';
+  chatField.style.height = Math.min(chatField.scrollHeight, 100) + 'px';
+  syncChatButtons();
+});
+chatField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!chatSend.disabled) submitChat(); }
+});
+
+function syncChatButtons() {
+  const has = chatField.value.trim().length > 0;
+  chatVoice.style.display = has ? 'none' : '';
+  chatSend.style.display  = has ? ''     : 'none';
+  chatSend.disabled       = !has || isStreaming;
+}
+
+// ── Send button click handlers (fix: wire buttons to submit functions) ──────
+homeSend.addEventListener('click', submitHome);
+chatSend.addEventListener('click', submitChat);
+
+// ── + Menu ─────────────────────────────────────────────────────────────────
+let menuContext = 'home';
+
+document.getElementById('home-plus-btn').addEventListener('click', e => openMenu(e, 'home'));
+document.getElementById('chat-plus-btn').addEventListener('click', e => openMenu(e, 'chat'));
+
+function openMenu(e, ctx) {
+  e.stopPropagation();
+  menuContext = ctx;
+  const btn  = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const mw   = 220;
+
+  let left = rect.left;
+  let top  = rect.bottom + 6;
+
+  // Flip left if it would overflow the right edge
+  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+
+  plusMenu.style.left = left + 'px';
+  plusMenu.style.top  = top  + 'px';
+  plusMenu.classList.toggle('open');
+}
+
+document.addEventListener('click', e => {
+  if (!plusMenu.contains(e.target)) plusMenu.classList.remove('open');
+});
+
+// Menu item clicks
+plusMenu.querySelectorAll('.menu-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const action = item.dataset.action;
+    plusMenu.classList.remove('open');
+
+    if (action === 'iterate') {
+      iterateOn = !iterateOn;
+      iterIndicator.classList.toggle('on', iterateOn);
+      item.classList.toggle('active-item', iterateOn);
+    }
+    // Other actions are decorative in this demo
+  });
+});
+
+// ── Submit from home ───────────────────────────────────────────────────────
+function submitHome() {
+  const text = homeField.value.trim();
+  if (!text || isStreaming) return;
+  isStreaming = true;
+
+  homeField.value = '';
+  homeField.style.height = 'auto';
+  syncHomeButtons();
+
+  // Transition to iterate screen
+  homeScreen.classList.add('hiding');
+  setTimeout(() => {
+    iterScreen.classList.add('visible');
+    initCanvas();
+  }, 220);
+
+  // Add human message + generate V1
+  addHumanMsg(text);
+  versionIdx = 1;
+  generateVersion('V1 \u2022 Cover letter for Anthropic', V1, () => {
+    addClaudeMsg(CLAUDE_REPLY_1, () => {
+      isStreaming = false;
+      syncChatButtons();
+    });
+  });
+}
+
+// ── Submit from chat ───────────────────────────────────────────────────────
+function submitChat() {
+  const text = chatField.value.trim();
+  if (!text || isStreaming) return;
+  const nSel = selectedIds.size;
+  isStreaming = true;
+
+  chatField.value = '';
+  chatField.style.height = 'auto';
+  syncChatButtons();
+
+  if (nSel > 0) {
+    addContextMsg(nSel, text);
+  } else {
+    addHumanMsg(text);
+  }
+
+  // Clear selection
+  clearSelections();
+
+  // Generate next version
+  versionIdx++;
+  generateVersion('V' + versionIdx + ' \u2022 Cover letter for Anthropic', V2, () => {
+    addClaudeMsg(CLAUDE_REPLY_2, () => {
+      isStreaming = false;
+      syncChatButtons();
+    });
+  });
+}
+
+// ── Generate version block on canvas ──────────────────────────────────────
+function generateVersion(label, html, onDone) {
+  const blockEl = document.createElement('div');
+  blockEl.className = 'block ver-block';
+  blockEl.id = 'blk-' + Date.now();
+
+  // Skeleton lines
+  let skelHtml = '';
+  for (let i = 0; i < 9; i++) {
+    const w = 72 + Math.floor(Math.random() * 24);
+    skelHtml += `<div class="skel" style="width:${w}%"></div>`;
+  }
+
+  blockEl.innerHTML = `
+    <button class="blk-check" aria-label="Select">${svgCheckEmpty()}</button>
+    <div class="blk-inner">
+      <div class="ver-label">${esc(label)}</div>
+      <div class="ver-body" id="vb-${versionIdx}">${skelHtml}</div>
+    </div>`;
+
+  blockEl.style.position = 'absolute';
+  blockEl.style.left = '0px';
+  blockEl.style.top  = nextVersionY + 'px';
+  canvasLayout.appendChild(blockEl);
+  lastVersionBlock = blockEl;
+  makeSelectable(blockEl);
+  makeDraggable(blockEl);
+  autoPanToLatest();
+
+  const bodyEl = blockEl.querySelector('.ver-body');
+
+  setTimeout(() => {
+    bodyEl.innerHTML = '';
+    const cursor = document.createElement('span');
+    cursor.className = 'scursor';
+    bodyEl.appendChild(cursor);
+    streamInto(bodyEl, cursor, html, () => {
+      bodyEl.contentEditable = 'true';
+      // Measure height now that content is fully rendered, update Y tracker
+      requestAnimationFrame(() => {
+        nextVersionY += blockEl.offsetHeight + VER_GAP;
+      });
+      if (onDone) onDone();
+    });
+  }, 900 + Math.random() * 350);
+}
+
+// ── Add sticky note ────────────────────────────────────────────────────────
+function addStickyNote() {
+  const blockEl = document.createElement('div');
+  blockEl.className = 'block sticky-blk';
+  blockEl.id = 'blk-' + Date.now();
+  blockEl.innerHTML = `
+    <button class="blk-check" aria-label="Select">${svgCheckEmpty()}</button>
+    <div class="blk-inner">
+      <div class="sticky-hd">Note</div>
+      <textarea class="sticky-ta" placeholder="Enter your thoughts…" rows="3"></textarea>
+    </div>`;
+
+  blockEl.style.position = 'absolute';
+  blockEl.style.left = SIDE_X + 'px';
+  blockEl.style.top  = nextSideY + 'px';
+  canvasLayout.appendChild(blockEl);
+  nextSideY += 160 + SIDE_GAP; // estimate; sticky notes vary by content
+  makeSelectable(blockEl);
+  makeDraggable(blockEl);
+
+  const ta = blockEl.querySelector('.sticky-ta');
+  ta.addEventListener('input', () => {
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+  });
+  // Tiny delay so the element is in the DOM first
+  setTimeout(() => ta.focus(), 60);
+}
+
+// ── Add file block ─────────────────────────────────────────────────────────
+function addFileBlock(name = "Rakshit's Resume", meta = "Document \u2022 PDF") {
+  const blockEl = document.createElement('div');
+  blockEl.className = 'block file-blk';
+  blockEl.id = 'blk-' + Date.now();
+  blockEl.innerHTML = `
+    <button class="blk-check" aria-label="Select">${svgCheckEmpty()}</button>
+    <div class="blk-inner">
+      <div class="file-ic">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+          <path d="M14 2v6h6"/>
+          <path d="M16 13H8M16 17H8M10 9H8"/>
+        </svg>
+      </div>
+      <div class="file-meta-wrap">
+        <div class="file-name">${esc(name)}</div>
+        <div class="file-type">${esc(meta)}</div>
+      </div>
+    </div>`;
+
+  blockEl.style.position = 'absolute';
+  blockEl.style.left = SIDE_X + 'px';
+  blockEl.style.top  = nextSideY + 'px';
+  canvasLayout.appendChild(blockEl);
+  requestAnimationFrame(() => {
+    nextSideY += blockEl.offsetHeight + SIDE_GAP;
+  });
+  makeSelectable(blockEl);
+  makeDraggable(blockEl);
+}
+
+// ── Make a block selectable (checkbox hover + toggle) ─────────────────────
+function makeSelectable(blockEl) {
+  const checkBtn = blockEl.querySelector('.blk-check');
+
+  // Reveal checkbox when cursor enters the top-left 70×60px zone
+  blockEl.addEventListener('mousemove', e => {
+    const r = blockEl.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    if (x < 72 && y < 62) {
+      checkBtn.classList.add('peek');
+    } else if (!blockEl.classList.contains('selected')) {
+      checkBtn.classList.remove('peek');
+    }
+  });
+  blockEl.addEventListener('mouseleave', () => {
+    if (!blockEl.classList.contains('selected')) checkBtn.classList.remove('peek');
+  });
+
+  // Toggle selection on checkbox click
+  checkBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const id = blockEl.id;
+    if (blockEl.classList.contains('selected')) {
+      blockEl.classList.remove('selected');
+      checkBtn.innerHTML = svgCheckEmpty();
+      selectedIds.delete(id);
+    } else {
+      blockEl.classList.add('selected');
+      checkBtn.innerHTML = svgCheckFilled();
+      selectedIds.add(id);
+    }
+    updateSelBadge();
+  });
+}
+
+// ── Free-form block dragging ───────────────────────────────────────────────
+let dragBlock = null, dragStartLeft = 0, dragStartTop = 0;
+let dragStartMouseX = 0, dragStartMouseY = 0;
+
+function makeDraggable(blockEl) {
+  blockEl.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    // Skip drag when clicking interactive children
+    if (e.target.closest('textarea, [contenteditable="true"], button, input, a')) return;
+    e.stopPropagation(); // prevent canvas pan
+    e.preventDefault();
+
+    dragBlock      = blockEl;
+    dragStartLeft  = parseFloat(blockEl.style.left) || 0;
+    dragStartTop   = parseFloat(blockEl.style.top)  || 0;
+    dragStartMouseX = e.clientX;
+    dragStartMouseY = e.clientY;
+
+    blockEl.classList.add('is-dragging');
+    // Bring to front
+    blockEl.style.zIndex = '30';
+  });
+}
+
+document.addEventListener('mousemove', e => {
+  if (!dragBlock) return;
+  const dx = (e.clientX - dragStartMouseX) / camScale;
+  const dy = (e.clientY - dragStartMouseY) / camScale;
+  dragBlock.style.left = (dragStartLeft + dx) + 'px';
+  dragBlock.style.top  = (dragStartTop  + dy) + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+  if (!dragBlock) return;
+  dragBlock.classList.remove('is-dragging');
+  dragBlock.style.zIndex = '';
+  dragBlock = null;
+});
+
+function clearSelections() {
+  selectedIds.clear();
+  document.querySelectorAll('.block.selected').forEach(b => {
+    b.classList.remove('selected');
+    b.querySelector('.blk-check').innerHTML = svgCheckEmpty();
+    b.querySelector('.blk-check').classList.remove('peek');
+  });
+  updateSelBadge();
+}
+
+function updateSelBadge() {
+  const n = selectedIds.size;
+  selCount.textContent = n;
+  selBadge.classList.toggle('on', n > 0);
+}
+
+// ── Chat messages ──────────────────────────────────────────────────────────
+function addHumanMsg(text) {
+  const el = document.createElement('div');
+  el.className = 'msg-human';
+  el.innerHTML = `<div class="human-bub">${esc(text)}</div>`;
+  msgsInner.appendChild(el);
+  scrollMsgs();
+}
+
+function addContextMsg(count, text) {
+  const el = document.createElement('div');
+  el.className = 'msg-human';
+  el.innerHTML = `
+    <div class="ctx-bub">
+      <span class="ctx-pill">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m9 11 3 3L22 4"/>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+        ${count} selected
+      </span>
+      <div class="ctx-text">${esc(text)}</div>
+    </div>`;
+  msgsInner.appendChild(el);
+  scrollMsgs();
+}
+
+function addClaudeMsg(text, onDone) {
+  const el = document.createElement('div');
+  el.className = 'msg-claude';
+  el.innerHTML = `
+    <div class="claude-hd">
+      <svg class="claude-logo" viewBox="0 0 100 100" fill="currentColor">
+        <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+      </svg>
+      <span class="claude-nm">Claude</span>
+    </div>
+    <div class="claude-txt"></div>`;
+
+  msgsInner.appendChild(el);
+  scrollMsgs();
+
+  const txtEl = el.querySelector('.claude-txt');
+  const cursor = document.createElement('span');
+  cursor.className = 'scursor';
+  txtEl.appendChild(cursor);
+  streamWords(txtEl, cursor, text, onDone);
+}
+
+function scrollMsgs() {
+  requestAnimationFrame(() => { msgsWrap.scrollTop = msgsWrap.scrollHeight; });
+}
+
+// ── Chat pane resize ───────────────────────────────────────────────────────
+const paneResizer = document.getElementById('pane-resizer');
+const chatPane    = document.getElementById('chat-pane');
+const CHAT_MIN    = 360;
+const CHAT_MAX    = 720;
+
+let isResizing = false, resizeStartX = 0, resizeStartW = 0;
+
+paneResizer.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  isResizing    = true;
+  resizeStartX  = e.clientX;
+  resizeStartW  = chatPane.offsetWidth;
+  paneResizer.classList.add('resizing');
+  document.body.style.cursor   = 'col-resize';
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', e => {
+  if (!isResizing) return;
+  // Dragging right → chat gets narrower; left → wider
+  const delta  = resizeStartX - e.clientX;
+  const newW   = Math.min(CHAT_MAX, Math.max(CHAT_MIN, resizeStartW + delta));
+  chatPane.style.width = newW + 'px';
+});
+
+document.addEventListener('mouseup', () => {
+  if (!isResizing) return;
+  isResizing = false;
+  paneResizer.classList.remove('resizing');
+  document.body.style.cursor    = '';
+  document.body.style.userSelect = '';
+});
+
+// ── Canvas pan / zoom ──────────────────────────────────────────────────────
+let camX = 40, camY = 40, camScale = 1;
+const CAM_MIN = 0.1, CAM_MAX = 3;
+let spaceDown = false, isPanning = false, panOrigin = null;
+
+function applyTransform(animated) {
+  canvasWorld.style.transition = animated
+    ? 'transform 320ms cubic-bezier(.22,.68,0,1.2)'
+    : 'none';
+  canvasWorld.style.transform = `translate(${camX}px,${camY}px) scale(${camScale})`;
+  document.getElementById('zoom-reset').textContent = Math.round(camScale * 100) + '%';
+}
+
+// Initialise transform once the iterate screen is visible
+function initCanvas() {
+  camX = 40; camY = 40; camScale = 1;
+  applyTransform(false);
+}
+
+// Zoom centred on the cursor (or pane centre for buttons)
+function zoomAt(cx, cy, factor) {
+  const newScale = Math.min(CAM_MAX, Math.max(CAM_MIN, camScale * factor));
+  const worldX = (cx - camX) / camScale;
+  const worldY = (cy - camY) / camScale;
+  camX = cx - worldX * newScale;
+  camY = cy - worldY * newScale;
+  camScale = newScale;
+}
+
+// Wheel → zoom
+canvasPane.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvasPane.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  // Trackpad pinch uses ctrlKey; regular wheel uses smaller steps
+  const factor = e.ctrlKey
+    ? (e.deltaY < 0 ? 1.12 : 1 / 1.12)
+    : (e.deltaY < 0 ? 1.07 : 1 / 1.07);
+  zoomAt(cx, cy, factor);
+  applyTransform(false);
+}, { passive: false });
+
+// Space → grab cursor (non-destructive: don't capture in text inputs)
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !e.target.matches('textarea,input,[contenteditable]')) {
+    if (!spaceDown) { spaceDown = true; canvasPane.style.cursor = 'grab'; }
+    e.preventDefault();
+  }
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    spaceDown = false;
+    if (!isPanning) canvasPane.style.cursor = '';
+  }
+});
+
+// Mousedown → start pan (middle button OR space + left button)
+canvasPane.addEventListener('mousedown', e => {
+  if (e.button === 1 || (e.button === 0 && spaceDown)) {
+    isPanning = true;
+    panOrigin = { x: e.clientX - camX, y: e.clientY - camY };
+    canvasPane.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+});
+document.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  camX = e.clientX - panOrigin.x;
+  camY = e.clientY - panOrigin.y;
+  applyTransform(false);
+});
+document.addEventListener('mouseup', () => {
+  if (isPanning) {
+    isPanning = false;
+    canvasPane.style.cursor = spaceDown ? 'grab' : '';
+  }
+});
+
+// Zoom HUD buttons
+document.getElementById('zoom-in').addEventListener('click', () => {
+  zoomAt(canvasPane.clientWidth / 2, canvasPane.clientHeight / 2, 1.25);
+  applyTransform(true);
+});
+document.getElementById('zoom-out').addEventListener('click', () => {
+  zoomAt(canvasPane.clientWidth / 2, canvasPane.clientHeight / 2, 1 / 1.25);
+  applyTransform(true);
+});
+document.getElementById('zoom-reset').addEventListener('click', () => {
+  camX = 40; camY = 40; camScale = 1;
+  applyTransform(true);
+});
+
+// Pan camera so the latest version block stays in view
+function autoPanToLatest() {
+  requestAnimationFrame(() => {
+    const lastBlock = lastVersionBlock;
+    if (!lastBlock) return;
+    const blockRect = lastBlock.getBoundingClientRect();
+    const paneRect  = canvasPane.getBoundingClientRect();
+    const margin    = 60;
+    // If bottom of block is below the visible pane, slide up
+    const overflow  = (blockRect.bottom - paneRect.top) - paneRect.height + margin;
+    if (overflow > 0) {
+      const startY = camY;
+      const endY   = camY - overflow;
+      const dur    = 380, t0 = performance.now();
+      function step(now) {
+        const p    = Math.min((now - t0) / dur, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        camY = startY + (endY - startY) * ease;
+        applyTransform(false);
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+  });
+}
+
+// ── Streaming helpers ──────────────────────────────────────────────────────
+// Stream HTML content (with <p> tags) word-by-word into a container
+function streamInto(container, cursor, html, onDone) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const paras  = Array.from(tmp.querySelectorAll('p'));
+  const chunks = [];
+
+  if (paras.length > 0) {
+    paras.forEach((p, i) => {
+      if (i > 0) chunks.push(null); // paragraph break
+      p.innerHTML.split(/(\s+)/).forEach(w => { if (w) chunks.push(w); });
+    });
+  } else {
+    html.split(/(\s+)/).forEach(w => { if (w) chunks.push(w); });
+  }
+
+  let idx = 0, curP = null;
+
+  function next() {
+    if (idx >= chunks.length) { cursor.remove(); if (onDone) onDone(); return; }
+    const ch = chunks[idx++];
+    if (ch === null) { curP = null; setTimeout(next, 48); return; }
+    if (!curP) {
+      curP = document.createElement('p');
+      container.insertBefore(curP, cursor); // cursor is always a direct child
+    }
+    const s = document.createElement('span');
+    s.innerHTML = ch;
+    curP.appendChild(s);
+    scrollMsgs();
+    setTimeout(next, 8 + Math.random() * 14);
+  }
+  next();
+}
+
+// Stream plain-text words
+function streamWords(el, cursor, text, onDone) {
+  const words = text.split(/(\s+)/);
+  let i = 0;
+  function next() {
+    if (i >= words.length) { cursor.remove(); if (onDone) onDone(); return; }
+    const s = document.createElement('span');
+    s.textContent = words[i++];
+    el.insertBefore(s, cursor);
+    scrollMsgs();
+    setTimeout(next, 18 + Math.random() * 22);
+  }
+  next();
+}
+
+// ── Canvas toolbar buttons ─────────────────────────────────────────────────
+document.getElementById('btn-note').addEventListener('click', addStickyNote);
+document.getElementById('btn-attach').addEventListener('click', addFileBlock);
+
+// ── Inline selection toolbar ───────────────────────────────────────────────
+const inlineSelTb    = document.getElementById('inline-sel-tb');
+const inlinePromptCard = document.getElementById('inline-prompt-card');
+const ipcField       = document.getElementById('ipc-field');
+
+let selTarget        = null; // the <p> element the user selected text in
+let selRangeRect     = null; // the bounding rect of the selection
+
+function showInlineSelTb(rect) {
+  // Centre toolbar above the selection
+  const tbW = 148;
+  let left = rect.left + (rect.width - tbW) / 2;
+  let top  = rect.top - 42;
+  // clamp
+  left = Math.max(8, Math.min(left, window.innerWidth - tbW - 8));
+  if (top < 8) top = rect.bottom + 6;
+  inlineSelTb.style.left = left + 'px';
+  inlineSelTb.style.top  = top  + 'px';
+  inlineSelTb.classList.add('show');
+}
+
+function hideInlineSelTb() {
+  inlineSelTb.classList.remove('show');
+}
+
+function showInlinePromptCard(rect) {
+  const cardW = 360;
+  let left = rect.left;
+  let top  = rect.bottom + 10;
+  left = Math.max(8, Math.min(left, window.innerWidth - cardW - 8));
+  if (top + 120 > window.innerHeight) top = rect.top - 130;
+  inlinePromptCard.style.left = left + 'px';
+  inlinePromptCard.style.top  = top  + 'px';
+  inlinePromptCard.classList.add('show');
+  setTimeout(() => ipcField.focus(), 80);
+}
+
+function hideInlinePromptCard() {
+  inlinePromptCard.classList.remove('show');
+  ipcField.value = '';
+}
+
+// Detect text selection within .ver-body
+document.addEventListener('mouseup', e => {
+  // Small delay so the browser has committed the selection
+  setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+
+    // Walk up to find .ver-body ancestor
+    let node = sel.anchorNode;
+    let verBody = null;
+    while (node) {
+      if (node.nodeType === 1 && node.classList && node.classList.contains('ver-body')) {
+        verBody = node; break;
+      }
+      node = node.parentNode;
+    }
+    if (!verBody) return;
+
+    // Find the paragraph the selection starts in
+    let pEl = sel.anchorNode;
+    while (pEl && pEl.tagName !== 'P') pEl = pEl.parentNode;
+    selTarget = (pEl && verBody.contains(pEl)) ? pEl : null;
+
+    const range = sel.getRangeAt(0);
+    selRangeRect = range.getBoundingClientRect();
+    showInlineSelTb(selRangeRect);
+  }, 10);
+});
+
+// Dismiss toolbar when clicking outside
+document.addEventListener('mousedown', e => {
+  setTimeout(() => {
+    if (!inlineSelTb.contains(e.target) && !inlinePromptCard.contains(e.target)) {
+      hideInlineSelTb();
+    }
+  }, 20);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { hideInlineSelTb(); hideInlinePromptCard(); }
+});
+
+// Reply: paste selected text into chat field
+document.getElementById('ist-reply').addEventListener('click', () => {
+  const sel = window.getSelection();
+  if (sel && !sel.isCollapsed) {
+    const text = sel.toString().trim();
+    if (text) {
+      chatField.value = '\u201c' + text + '\u201d ';
+      chatField.dispatchEvent(new Event('input'));
+      chatField.focus();
+    }
+  }
+  hideInlineSelTb();
+  window.getSelection()?.removeAllRanges();
+});
+
+// Ask: open inline prompt card
+document.getElementById('ist-ask').addEventListener('click', () => {
+  hideInlineSelTb();
+  if (selRangeRect) showInlinePromptCard(selRangeRect);
+  window.getSelection()?.removeAllRanges();
+});
+
+// Submit inline prompt (Enter or send button)
+ipcField.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitInlinePrompt(); }
+});
+document.getElementById('ipc-send').addEventListener('click', submitInlinePrompt);
+
+function submitInlinePrompt() {
+  const prompt = ipcField.value.trim();
+  if (!prompt || !selTarget) return;
+
+  hideInlinePromptCard();
+
+  // a) Replace target <p> with 5 skeleton lines
+  const skelDiv = document.createElement('div');
+  skelDiv.className = 'inline-skel';
+  for (let i = 0; i < 5; i++) {
+    const w = 68 + Math.floor(Math.random() * 28);
+    skelDiv.innerHTML += `<div class="skel" style="width:${w}%"></div>`;
+  }
+  selTarget.replaceWith(skelDiv);
+
+  // b) Add chat messages
+  addHumanMsg(prompt);
+  addClaudeMsg('Working on it\u2026', null);
+
+  // c) After ~1200ms: replace skeleton with streamed paragraph
+  const replacementText = 'I have revised this paragraph to better highlight your experience with high-velocity trading systems at Groww, directly connecting it to the kind of real-time AI interface design challenges Anthropic faces. The tone is more specific and confident, grounding your enthusiasm in concrete past results.';
+
+  setTimeout(() => {
+    const newP = document.createElement('p');
+    skelDiv.replaceWith(newP);
+    const cursor = document.createElement('span');
+    cursor.className = 'scursor';
+    newP.appendChild(cursor);
+    streamWords(newP, cursor, replacementText, () => {
+      // d) Follow-up Claude message in chat
+      addClaudeMsg('I\u2019ve updated that paragraph in place. Let me know if you\u2019d like further refinements.', null);
+    });
+  }, 1200);
+
+  selTarget = null;
+  selRangeRect = null;
+}
+
+// ── Right-click context menu ───────────────────────────────────────────────
+const ctxMenu = document.getElementById('ctx-menu');
+let ctxTargetBlock = null;
+
+canvasWorld.addEventListener('contextmenu', e => {
+  const block = e.target.closest('.block');
+  if (!block) return;
+  e.preventDefault();
+  ctxTargetBlock = block;
+
+  let left = e.clientX;
+  let top  = e.clientY;
+  const menuW = 148, menuH = 52;
+  if (left + menuW > window.innerWidth  - 8) left = window.innerWidth  - menuW - 8;
+  if (top  + menuH > window.innerHeight - 8) top  = window.innerHeight - menuH - 8;
+  ctxMenu.style.left = left + 'px';
+  ctxMenu.style.top  = top  + 'px';
+  ctxMenu.classList.add('show');
+});
+
+document.getElementById('ctx-delete').addEventListener('click', () => {
+  if (!ctxTargetBlock) return;
+  const id = ctxTargetBlock.id;
+
+  // Animate out
+  ctxTargetBlock.style.transition = 'opacity 180ms ease, transform 180ms ease';
+  ctxTargetBlock.style.opacity    = '0';
+  ctxTargetBlock.style.transform  = 'scale(0.93)';
+
+  setTimeout(() => {
+    if (ctxTargetBlock && ctxTargetBlock.parentNode) {
+      ctxTargetBlock.parentNode.removeChild(ctxTargetBlock);
+    }
+    // Remove from selection state if it was selected
+    if (selectedIds.has(id)) {
+      selectedIds.delete(id);
+      updateSelBadge();
+    }
+    ctxTargetBlock = null;
+  }, 200);
+
+  hideCtxMenu();
+});
+
+function hideCtxMenu() {
+  ctxMenu.classList.remove('show');
+}
+
+// Dismiss context menu
+document.addEventListener('click', e => {
+  if (!ctxMenu.contains(e.target)) hideCtxMenu();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hideCtxMenu();
+});
+
+// ── Icon helpers ───────────────────────────────────────────────────────────
+function svgCheckEmpty() {
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2.5"/>
+  </svg>`;
+}
+function svgCheckFilled() {
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f9ee8" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m9 11 3 3L22 4"/>
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+  </svg>`;
+}
+
+// ── Escape HTML ────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

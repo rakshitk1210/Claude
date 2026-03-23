@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude — v2 Inline Ask</title>
+  <style>
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-light.woff2') format('woff2');
+      font-weight: 300; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-medium.woff2') format('woff2');
+      font-weight: 500; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Tiempos Headline';
+      src: url('../../Test Tiempos Headline/test-tiempos-headline-semibold.woff2') format('woff2');
+      font-weight: 600; font-style: normal;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-w: 54px;
+      --bg-sidebar: #1c1917;
+      --bg-main: #f5f4ef;
+      --bg-input: #eceae3;
+      --bg-human: #e8e6df;
+      --text-100: #1c1917;
+      --text-300: #6b6860;
+      --text-400: #9b9892;
+      --text-500: #b5b2ab;
+      --accent: #c15f3c;
+      --border: #e4e2dc;
+      --icon-default: #9b9892;
+      --icon-hover: #f5f4ef;
+
+      /* Selection highlight — matches Figma exactly */
+      --selection-bg: #b2dafd;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg-main);
+      color: var(--text-100);
+    }
+
+    /* ── App Shell ── */
+    .app { display: flex; height: 100vh; }
+
+    /* ── Sidebar (unchanged from v1) ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-sidebar);
+      display: flex; flex-direction: column;
+      align-items: center;
+      padding: 8px 0 10px;
+      flex-shrink: 0;
+    }
+    .sidebar-top { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1; }
+    .sidebar-bottom { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .sb-btn {
+      width: 36px; height: 36px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--icon-default);
+      transition: background 120ms, color 120ms;
+    }
+    .sb-btn:hover { background: rgba(255,255,255,0.08); color: var(--icon-hover); }
+    .sb-btn.active { color: rgba(255,255,255,0.85); }
+    .sb-divider { width: 22px; height: 1px; background: rgba(255,255,255,0.07); margin: 5px 0; }
+    .user-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; font-weight: 600; color: white;
+      cursor: pointer; letter-spacing: 0.03em;
+    }
+
+    /* ── Main ── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    /* ── Topbar ── */
+    .topbar {
+      height: 46px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0; background: var(--bg-main);
+    }
+    .topbar-title {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 14px; font-weight: 500; color: var(--text-100);
+      cursor: pointer; border-radius: 6px; padding: 4px 6px; margin-left: -6px;
+      transition: background 100ms;
+    }
+    .topbar-title:hover { background: rgba(0,0,0,0.05); }
+    .topbar-title svg { color: var(--text-400); }
+    .share-btn {
+      height: 29px; padding: 0 12px;
+      border: 1px solid var(--border); border-radius: 8px; background: white;
+      font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-100);
+      transition: background 100ms; display: flex; align-items: center; gap: 5px;
+      font-family: inherit;
+    }
+    .share-btn:hover { background: var(--bg-input); }
+
+    /* ── Messages ── */
+    .messages-wrap { flex: 1; overflow-y: auto; scroll-behavior: smooth; position: relative; }
+    .messages-wrap::-webkit-scrollbar { width: 5px; }
+    .messages-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+
+    .messages-inner {
+      max-width: 688px; margin: 0 auto;
+      padding: 36px 24px 24px;
+      display: flex; flex-direction: column; gap: 28px;
+    }
+
+    /* Human message */
+    .msg-human { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .human-bubble {
+      background: var(--bg-human); border-radius: 18px 18px 4px 18px;
+      padding: 10px 15px; font-size: 15px; line-height: 1.55;
+      max-width: 78%; color: var(--text-100); word-break: break-word;
+    }
+    .human-meta { display: flex; align-items: center; gap: 10px; padding-right: 2px; }
+    .meta-time { font-size: 11px; color: var(--text-400); }
+    .action-row { display: flex; align-items: center; gap: 1px; opacity: 0; transition: opacity 140ms; }
+    .msg-human:hover .action-row { opacity: 1; }
+    .msg-claude-wrap:hover .claude-action-row { opacity: 1; }
+    .act-btn {
+      width: 28px; height: 28px; border-radius: 6px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: background 100ms, color 100ms;
+    }
+    .act-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-100); }
+
+    /* Claude message */
+    .msg-claude-wrap { display: flex; flex-direction: column; }
+    .claude-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .claude-avatar-icon { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; }
+    .claude-name { font-size: 13px; font-weight: 500; color: var(--text-300); }
+
+    /* Claude body — selectable text */
+    .claude-body {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 16px; font-weight: 400; line-height: 1.78;
+      color: var(--text-100);
+      user-select: text;
+      cursor: text;
+      position: relative;
+    }
+    .claude-body p + p { margin-top: 15px; }
+    .claude-body h3 {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 17px; font-weight: 600; line-height: 1.35;
+      margin: 22px 0 8px;
+    }
+    .claude-body ul, .claude-body ol { padding-left: 22px; margin: 10px 0; }
+    .claude-body li { margin: 5px 0; }
+    .claude-body strong { font-weight: 600; }
+    .claude-body em { font-style: italic; }
+
+    /* Native text selection color */
+    .claude-body ::selection { background: var(--selection-bg); color: inherit; }
+    .claude-body ::-moz-selection { background: var(--selection-bg); color: inherit; }
+
+    /* Highlighted span that stays after toolbar interaction */
+    .inline-highlight {
+      background: var(--selection-bg);
+      border-radius: 2px;
+    }
+
+    .claude-action-row {
+      display: flex; align-items: center; gap: 1px;
+      margin-top: 14px; opacity: 0; transition: opacity 140ms;
+    }
+
+    /* Inline ask bubble — appears below selection */
+    .inline-ask-wrap {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .inline-ask-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .inline-ask-quote {
+      font-size: 12px;
+      color: var(--text-400);
+      padding: 4px 10px;
+      background: rgba(178, 218, 253, 0.35);
+      border-left: 2px solid #74b9f5;
+      border-radius: 0 4px 4px 0;
+      font-style: italic;
+      line-height: 1.5;
+      max-width: 500px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .inline-ask-response {
+      font-family: 'Tiempos Headline', Georgia, serif;
+      font-size: 15px; font-weight: 400; line-height: 1.72;
+      color: var(--text-100);
+      padding-left: 14px;
+      border-left: 2px solid #e4e2dc;
+    }
+    .inline-ask-response p + p { margin-top: 12px; }
+
+    /* Streaming cursor */
+    .stream-cursor {
+      display: inline-block; width: 2px; height: 15px;
+      background: var(--text-300); border-radius: 1px;
+      vertical-align: text-bottom; margin-left: 1px;
+      animation: blink 0.85s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Floating selection toolbar ── */
+    #selection-toolbar {
+      position: fixed;
+      z-index: 100;
+      background: white;
+      border: 1px solid #e4e2dc;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      pointer-events: all;
+      white-space: nowrap;
+      transition: opacity 120ms, transform 120ms;
+    }
+    #selection-toolbar.visible {
+      display: flex;
+    }
+
+    .toolbar-divider {
+      width: 1px; height: 18px;
+      background: #e4e2dc;
+      flex-shrink: 0;
+    }
+
+    .toolbar-icon-btn {
+      width: 30px; height: 30px; border-radius: 8px; border: none;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-300);
+      transition: background 100ms, color 100ms;
+    }
+    .toolbar-icon-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-100); }
+
+    .toolbar-btn {
+      height: 30px; padding: 0 12px; border-radius: 7px;
+      font-size: 12.5px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      font-family: inherit; transition: background 100ms, color 100ms;
+    }
+    .toolbar-btn-secondary {
+      border: 1px solid #e0ddd7;
+      background: white;
+      color: var(--text-100);
+    }
+    .toolbar-btn-secondary:hover { background: #f5f4ef; }
+
+    .toolbar-btn-primary {
+      border: none;
+      background: var(--accent);
+      color: white;
+    }
+    .toolbar-btn-primary:hover { background: #b05535; }
+
+    /* ── Floating inline input (Ask mode) ── */
+    #inline-input-card {
+      position: fixed;
+      z-index: 101;
+      background: white;
+      border: 1px solid #e4e2dc;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px 12px 10px 14px;
+      width: 360px;
+      pointer-events: all;
+    }
+    #inline-input-card.visible { display: flex; }
+
+    .iic-context {
+      font-size: 11.5px;
+      color: var(--text-400);
+      padding: 4px 8px;
+      background: rgba(178, 218, 253, 0.3);
+      border-left: 2px solid #74b9f5;
+      border-radius: 0 4px 4px 0;
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .iic-textarea {
+      width: 100%; border: none; background: transparent;
+      font-size: 14px;
+      font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      color: var(--text-100); resize: none; outline: none;
+      line-height: 1.5; min-height: 20px; max-height: 100px;
+    }
+    .iic-textarea::placeholder { color: var(--text-400); }
+
+    .iic-footer {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .iic-add-btn {
+      width: 28px; height: 28px; border-radius: 7px;
+      border: 1px solid #e0ddd7; background: white; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-400); transition: background 100ms, color 100ms;
+    }
+    .iic-add-btn:hover { background: #f5f4ef; color: var(--text-100); }
+
+    .iic-send-btn {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 80ms, transform 80ms;
+    }
+    .iic-send-btn:hover { background: #b05535; }
+    .iic-send-btn:active { transform: scale(0.92); }
+    .iic-send-btn:disabled { background: #c8c5be; cursor: not-allowed; }
+
+    /* ── Bottom input area ── */
+    .input-area { padding: 10px 20px 18px; flex-shrink: 0; background: var(--bg-main); }
+    .input-wrap {
+      max-width: 688px; margin: 0 auto;
+      background: var(--bg-input); border-radius: 14px;
+      padding: 10px 10px 8px 14px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: box-shadow 150ms;
+    }
+    .input-wrap:focus-within { box-shadow: 0 0 0 1.5px rgba(0,0,0,0.12); }
+    .input-field {
+      width: 100%; border: none; background: transparent;
+      font-size: 15px; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+      color: var(--text-100); resize: none; outline: none;
+      line-height: 1.5; min-height: 22px; max-height: 180px;
+    }
+    .input-field::placeholder { color: var(--text-400); }
+    .input-toolbar { display: flex; align-items: center; justify-content: space-between; }
+    .input-left, .input-right { display: flex; align-items: center; gap: 3px; }
+    .tool-btn {
+      height: 28px; padding: 0 8px; border: none; border-radius: 7px;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+      color: var(--text-400); font-size: 12.5px; font-weight: 500;
+      font-family: inherit; transition: background 100ms, color 100ms;
+    }
+    .tool-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-100); }
+    .model-btn {
+      height: 28px; padding: 0 8px; border: none; border-radius: 7px;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; gap: 3px;
+      color: var(--text-400); font-size: 12.5px; font-weight: 500;
+      font-family: inherit; transition: background 100ms, color 100ms;
+    }
+    .model-btn:hover { background: rgba(0,0,0,0.06); color: var(--text-100); }
+    .send-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--text-100); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; transition: background 100ms, transform 80ms;
+    }
+    .send-btn:hover:not(:disabled) { background: #333; }
+    .send-btn:active:not(:disabled) { transform: scale(0.92); }
+    .send-btn:disabled { background: #c8c5be; cursor: not-allowed; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #2db57e; }
+
+    /* Empty state */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: calc(100vh - 180px); gap: 16px; color: var(--text-400); pointer-events: none;
+    }
+    .empty-state svg { opacity: 0.2; }
+    .empty-state p { font-size: 14px; }
+
+    /* Hint pill */
+    .selection-hint {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11.5px; color: var(--text-500);
+      margin-top: 10px;
+      padding: 4px 10px;
+      background: rgba(0,0,0,0.03);
+      border-radius: 100px;
+      border: 1px solid rgba(0,0,0,0.05);
+      opacity: 0;
+      transition: opacity 400ms;
+    }
+    .selection-hint.visible { opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <button class="sb-btn active" title="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg>
+      </button>
+      <button class="sb-btn" title="New chat" onclick="newChat()">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+      </button>
+      <button class="sb-btn" title="Search">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M8.5 2C12.0899 2 15 4.91015 15 8.5C15 10.1149 14.4094 11.5908 13.4346 12.7275L17.8535 17.1465L17.918 17.2246C18.0461 17.4187 18.0244 17.6827 17.8535 17.8535C17.6827 18.0244 17.4187 18.0461 17.2246 17.918L17.1465 17.8535L12.7275 13.4346C11.5908 14.4094 10.1149 15 8.5 15C4.91015 15 2 12.0899 2 8.5C2 4.91015 4.91015 2 8.5 2ZM8.5 3C5.46243 3 3 5.46243 3 8.5C3 11.5376 5.46243 14 8.5 14C11.5376 14 14 11.5376 14 8.5C14 5.46243 11.5376 3 8.5 3Z"/></svg>
+      </button>
+      <button class="sb-btn" title="Library">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M16.0004 5.5C16.0004 5.224 15.7764 5.00024 15.5004 5H4.50043C4.22428 5 4.00043 5.22386 4.00043 5.5C4.00043 5.77614 4.22428 6 4.50043 6H15.5004C15.7764 5.99976 16.0004 5.776 16.0004 5.5Z"/><path d="M14.5004 3.5C14.5004 3.224 14.2764 3.00024 14.0004 3H6.00043C5.72428 3 5.50043 3.22386 5.50043 3.5C5.50043 3.77614 5.72428 4 6.00043 4H14.0004C14.2764 3.99976 14.5004 3.776 14.5004 3.5Z"/><path d="M15.8198 7C16.6885 7.00025 17.3624 7.73158 17.3178 8.57617L17.2993 8.74707L16.1332 15.7471C16.0126 16.4699 15.3865 16.9996 14.6538 17H5.34711C4.6142 16.9998 3.98833 16.47 3.86762 15.7471L2.7016 8.74707C2.54922 7.83277 3.25418 7 4.18109 7H15.8198ZM4.18109 8C3.87216 8 3.63722 8.27731 3.68793 8.58203L4.85394 15.582C4.89413 15.8229 5.10291 15.9998 5.34711 16H14.6538C14.8978 15.9996 15.1068 15.8228 15.1469 15.582L16.3129 8.58203L16.3188 8.46973C16.3036 8.21259 16.0899 8.00023 15.8198 8H4.18109Z"/></svg>
+      </button>
+      <div class="sb-divider"></div>
+      <button class="sb-btn" title="Starred">
+        <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M239.2,97.29a15.89,15.89,0,0,0-13-10.78l-59.06-4.92L144.27,26.8a15.91,15.91,0,0,0-29.3,0L92.86,81.59,33.8,86.51A15.89,15.89,0,0,0,20.8,97.29,16.46,16.46,0,0,0,25.95,115l45,38.83L57.17,211.8a16.38,16.38,0,0,0,6.86,17.67,15.84,15.84,0,0,0,18.62-.8L128,193.38l45.35,35.29a15.86,15.86,0,0,0,18.62.8,16.38,16.38,0,0,0,6.86-17.67l-13.78-58-45-38.83A16.46,16.46,0,0,0,239.2,97.29Z"/></svg>
+      </button>
+      <button class="sb-btn" title="Projects">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M12.5 3C13.3284 3 14 3.67157 14 4.5V6H14.5C16.433 6 18 7.567 18 9.5V15.5C18 16.3284 17.3284 17 16.5 17H3.5C2.72334 17 2.08461 16.4097 2.00781 15.6533L2 15.5V9.5C2 7.567 3.567 6 5.5 6H6V4.5C6 3.67157 6.67157 3 7.5 3H12.5ZM5.5 7C4.11929 7 3 8.11929 3 9.5V11H7V10.5C7 10.2239 7.22386 10 7.5 10C7.77614 10 8 10.2239 8 10.5V11H12V10.5C12 10.2239 12.2239 10 12.5 10C12.7761 10 13 10.2239 13 10.5V11H17V9.5C17 8.11929 15.8807 7 14.5 7H5.5ZM7.5 4C7.22386 4 7 4.22386 7 4.5V6H13V4.5C13 4.22386 12.7761 4 12.5 4H7.5Z"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-bottom">
+      <button class="sb-btn" title="Download">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V12.1855L13.626 8.66797C13.8094 8.46166 14.1256 8.44275 14.332 8.62598C14.5383 8.80936 14.5573 9.12563 14.374 9.33203L10.374 13.832C10.21 13.9654 10.107 14 10 14C9.85718 14 9.72086 13.9388 9.62598 13.832L5.62598 9.33203C5.45079 9.04872 5.48735 8.78653 5.66797 8.62598C5.84854 8.46567 6.1127 8.46039 6.29883 8.59961L6.37402 8.66797L9.5 12.1855V3.5C9.5 3.22386 9.72386 3 10 3Z"/><path d="M3.5 13C3.22386 13 3 13.2239 3 13.5V15.5C3 16.3284 3.67157 17 4.5 17H15.5C16.3284 17 17 16.3284 17 15.5V13.5C17 13.2239 16.7761 13 16.5 13C16.2239 13 16 13.2239 16 13.5V15.5C16 15.7761 15.7761 16 15.5 16H4.5C4.22386 16 4 15.7761 4 15.5V13.5C4 13.2239 3.77614 13 3.5 13Z"/></svg>
+      </button>
+      <div class="user-avatar" title="Profile">RK</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <span id="convo-title">New conversation</span>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z"/></svg>
+      </div>
+      <button class="share-btn">Share</button>
+    </header>
+
+    <div class="messages-wrap" id="messages-wrap">
+      <div class="messages-inner" id="messages-inner">
+        <div class="empty-state" id="empty-state">
+          <svg width="36" height="36" viewBox="0 0 100 100" fill="currentColor"><path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/></svg>
+          <p>Ask something to get started</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea class="input-field" id="input-field" placeholder="Reply to Claude…" rows="1"></textarea>
+        <div class="input-toolbar">
+          <div class="input-left">
+            <button class="tool-btn">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+            </button>
+          </div>
+          <div class="input-right">
+            <button class="model-btn">
+              Opus 4.5 Extended
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M14.128 7.16482C14.3126 6.95983 14.6298 6.94336 14.835 7.12771C15.0402 7.31242 15.0567 7.62952 14.8721 7.83477L10.372 12.835C10.2093 12.9667 10.1063 13 9.99995 13C9.85833 12.9999 9.72264 12.9402 9.62788 12.835L5.12778 7.83477C4.95072 7.55225 4.98544 7.28926 5.16489 7.12771C5.34445 6.96617 5.60969 6.95939 5.79674 7.09744L5.87193 7.16482L9.99995 11.7519L14.128 7.16482Z"/></svg>
+            </button>
+            <button class="tool-btn">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2C11.6569 2 13 3.34315 13 5V10C13 11.6569 11.6569 13 10 13C8.34315 13 7 11.6569 7 10V5C7 3.34315 8.34315 2 10 2ZM10 3C8.89543 3 8 3.89543 8 5V10C8 11.1046 8.89543 12 10 12C11.1046 12 12 11.1046 12 10V5C12 3.89543 11.1046 3 10 3ZM5 9.5C5.27614 9.5 5.5 9.72386 5.5 10C5.5 12.4853 7.51472 14.5 10 14.5C12.4853 14.5 14.5 12.4853 14.5 10C14.5 9.72386 14.7239 9.5 15 9.5C15.2761 9.5 15.5 9.72386 15.5 10C15.5 12.9409 13.3328 15.3755 10.5 15.9291V17.5H12.5C12.7761 17.5 13 17.7239 13 18C13 18.2761 12.7761 18.5 12.5 18.5H7.5C7.22386 18.5 7 18.2761 7 18C7 17.7239 7.22386 17.5 7.5 17.5H9.5V15.9291C6.67224 15.3755 4.5 12.9409 4.5 10C4.5 9.72386 4.72386 9.5 5 9.5Z"/></svg>
+            </button>
+            <div class="status-dot"></div>
+            <button class="send-btn" id="send-btn" disabled>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M16.5 4C17.3284 4 18 4.67157 18 5.5V14.5C18 15.3284 17.3284 16 16.5 16H3.5C2.67157 16 2 15.3284 2 14.5V5.5C2 4.67157 2.67157 4 3.5 4H16.5ZM7 15H16.5C16.7761 15 17 14.7761 17 14.5V5.5C17 5.22386 16.7761 5 16.5 5H7V15ZM3.5 5C3.22386 5 3 5.22386 3 5.5V14.5C3 14.7761 3.22386 15 3.5 15H6V5H3.5Z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Floating Selection Toolbar ── -->
+<div id="selection-toolbar">
+  <button class="toolbar-icon-btn" id="toolbar-copy-btn" title="Copy">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M7 2C6.17157 2 5.5 2.67157 5.5 3.5V4H5C3.89543 4 3 4.89543 3 6V16C3 17.1046 3.89543 18 5 18H13C14.1046 18 15 17.1046 15 16V15.5H15.5C16.3284 15.5 17 14.8284 17 14V5.5C17 5.10218 16.842 4.72064 16.5607 4.43934L14.5607 2.43934C14.2794 2.15804 13.8978 2 13.5 2H7ZM7 3H13V5.5C13 6.32843 13.6716 7 14.5 7H16V14C16 14.5523 15.5523 15 15 15H7C6.44772 15 6.5 14.5523 6.5 14V3.5C6.5 3.22386 6.72386 3 7 3Z"/></svg>
+  </button>
+  <button class="toolbar-icon-btn" id="toolbar-chat-btn" title="Reply in thread">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M8.99962 2C12.3133 2 14.9996 4.68629 14.9996 8C14.9996 11.3137 12.3133 14 8.99962 14H2.49962C2.30105 13.9998 2.12113 13.8821 2.04161 13.7002C1.96224 13.5181 1.99835 13.3058 2.1334 13.1602L3.93516 11.2178C3.34317 10.2878 2.99962 9.18343 2.99962 8C2.99962 4.68643 5.68609 2.00022 8.99962 2Z"/></svg>
+  </button>
+  <div class="toolbar-divider"></div>
+  <button class="toolbar-btn toolbar-btn-secondary" id="toolbar-reply-btn">
+    <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M8.99962 2C12.3133 2 14.9996 4.68629 14.9996 8C14.9996 11.3137 12.3133 14 8.99962 14H2.49962C2.30105 13.9998 2.12113 13.8821 2.04161 13.7002C1.96224 13.5181 1.99835 13.3058 2.1334 13.1602L3.93516 11.2178C3.34317 10.2878 2.99962 9.18343 2.99962 8C2.99962 4.68643 5.68609 2.00022 8.99962 2Z"/></svg>
+    Reply
+  </button>
+  <button class="toolbar-btn toolbar-btn-primary" id="toolbar-ask-btn">
+    <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2C11.6569 2 13 3.34315 13 5V10C13 11.6569 11.6569 13 10 13C8.34315 13 7 11.6569 7 10V5C7 3.34315 8.34315 2 10 2ZM10 3C8.89543 3 8 3.89543 8 5V10C8 11.1046 8.89543 12 10 12C11.1046 12 12 11.1046 12 10V5C12 3.89543 11.1046 3 10 3ZM5 9.5C5.27614 9.5 5.5 9.72386 5.5 10C5.5 12.4853 7.51472 14.5 10 14.5C12.4853 14.5 14.5 12.4853 14.5 10C15.5 9.72386 15.5 9.5 15 9.5C15.2761 9.5 15.5 9.72386 15.5 10C15.5 12.9409 13.3328 15.3755 10.5 15.9291V17.5H12.5C12.7761 17.5 13 17.7239 13 18C13 18.2761 12.7761 18.5 12.5 18.5H7.5C7.22386 18.5 7 18.2761 7 18C7 17.7239 7.22386 17.5 7.5 17.5H9.5V15.9291C6.67224 15.3755 4.5 12.9409 4.5 10C4.5 9.72386 4.72386 9.5 5 9.5Z"/></svg>
+    Ask
+  </button>
+</div>
+
+<!-- ── Inline Input Card ── -->
+<div id="inline-input-card">
+  <div class="iic-context" id="iic-context-label"></div>
+  <textarea class="iic-textarea" id="iic-textarea" placeholder="Ask about this…" rows="2"></textarea>
+  <div class="iic-footer">
+    <button class="iic-add-btn" title="Add context">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.4142 3 10.75 3.33579 10.75 3.75V9.25H16.25C16.6642 9.25 17 9.58579 17 10C17 10.3882 16.7051 10.7075 16.3271 10.7461L16.25 10.75H10.75V16.25C10.75 16.6642 10.4142 17 10 17C9.58579 17 9.25 16.6642 9.25 16.25V10.75H3.75C3.33579 10.75 3 10.4142 3 10C3 9.58579 3.33579 9.25 3.75 9.25H9.25V3.75C9.25 3.33579 9.58579 3 10 3Z"/></svg>
+    </button>
+    <button class="iic-send-btn" id="iic-send-btn" disabled>
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3C10.2761 3 10.5 3.22386 10.5 3.5V12.1855L13.626 8.66797C13.8094 8.46166 14.1256 8.44275 14.332 8.62598C14.5383 8.80936 14.5573 9.12563 14.374 9.33203L10.374 13.832C10.21 13.9654 10.107 14 10 14C9.85718 14 9.72086 13.9388 9.62598 13.832L5.62598 9.33203C5.45079 9.04872 5.48735 8.78653 5.66797 8.62598C5.84854 8.46567 6.1127 8.46039 6.29883 8.59961L6.37402 8.66797L9.5 12.1855V3.5C9.5 3.22386 9.72386 3 10 3Z"/><path d="M3.5 13C3.22386 13 3 13.2239 3 13.5V15.5C3 16.3284 3.67157 17 4.5 17H15.5C16.3284 17 17 16.3284 17 15.5V13.5C17 13.2239 16.7761 13 16.5 13C16.2239 13 16 13.2239 16 13.5V15.5C16 15.7761 15.7761 16 15.5 16H4.5C4.22386 16 4 15.7761 4 15.5V13.5C4 13.2239 3.77614 13 3.5 13Z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  const ITERATION = { version: "v2", focus: "Inline text selection Ask", date: "2026-03-17" };
+
+  const RESPONSES = [
+    `<p>The distinction you're pointing at is important. Most systems treat state as an implementation concern — something to be managed, cached, synchronized. But for the user, state <em>is</em> the experience. When they can't see it, navigate it, or trust it, the whole thing falls apart.</p><p>The specific failure mode here is what I'd call <strong>implicit state loss</strong> — the user made progress, that progress exists somewhere, but there's no affordance to surface it. It's not that the state is gone; it's that it's become inaccessible. That's a UI problem, not a data problem.</p>`,
+    `<p>That's a sharper way to put it than most people do. The linearity isn't a constraint of the technology — it's a design choice that made sense for conversation but doesn't make sense for editing.</p><p>When you're having a conversation, append-only is natural. When you're producing an artifact, it's suffocating. The mental model mismatch is what causes the friction.</p>`,
+    `<p>The short answer is yes, but the more interesting question is <em>what</em> you'd preserve. Not all context is equally valuable — some of it is scaffolding that helped you get to this point, some of it is actually load-bearing for what comes next.</p><p>The systems that do this well tend to be explicit about the distinction. They let you mark things as "settled" versus "still in play." That separation does a lot of cognitive work for the user.</p>`,
+    `<p>This maps well to how version control works for code, but with an important difference: code has a formal structure that makes diffing tractable. Natural language doesn't. Two paragraphs that say the same thing differently are semantically equivalent but textually distinct — and most diff algorithms will treat them as entirely different.</p><p>The implication is that any versioning system for prose needs a semantic layer, not just a textual one. That's genuinely hard, but it's the right problem to be solving.</p>`,
+    `<p>Precisely. The cost of refinement isn't in generating the next version — that's cheap now. The cost is in <strong>evaluating</strong> it: reading, comparing, deciding what's better, figuring out what changed and whether the change is an improvement.</p><p>Everything that reduces that evaluation cost is a multiplier on how much iteration actually happens. Which is why the interface matters more than people assume — it's not a wrapper around the capability, it's a determinant of whether the capability gets used effectively.</p>`,
+  ];
+
+  let responseIdx = 0;
+  let isStreaming = false;
+  let messageCount = 0;
+  let activeHighlightSpan = null;
+  let activeInlineAnchor = null; // the claude-body element that owns the current selection
+
+  const inputField = document.getElementById('input-field');
+  const sendBtn = document.getElementById('send-btn');
+  const messagesInner = document.getElementById('messages-inner');
+  const messagesWrap = document.getElementById('messages-wrap');
+  const convoTitle = document.getElementById('convo-title');
+  const toolbar = document.getElementById('selection-toolbar');
+  const inlineCard = document.getElementById('inline-input-card');
+  const iicTextarea = document.getElementById('iic-textarea');
+  const iicSendBtn = document.getElementById('iic-send-btn');
+  const iicContextLabel = document.getElementById('iic-context-label');
+
+  // ── Main input ─────────────────────────────────────────────────────
+  inputField.addEventListener('input', () => {
+    inputField.style.height = 'auto';
+    inputField.style.height = Math.min(inputField.scrollHeight, 180) + 'px';
+    sendBtn.disabled = inputField.value.trim() === '' || isStreaming;
+  });
+
+  inputField.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) submitMain(); }
+  });
+  sendBtn.addEventListener('click', submitMain);
+
+  function submitMain() {
+    const text = inputField.value.trim();
+    if (!text || isStreaming) return;
+    dismissToolbar(); dismissInlineCard();
+    document.getElementById('empty-state')?.remove();
+    if (messageCount === 0) convoTitle.textContent = text.length > 42 ? text.slice(0, 42) + '…' : text;
+    messageCount++;
+    addHumanMessage(text);
+    inputField.value = ''; inputField.style.height = 'auto'; sendBtn.disabled = true;
+    streamMainResponse(RESPONSES[responseIdx % RESPONSES.length]);
+    responseIdx++;
+  }
+
+  // ── Text selection detection ───────────────────────────────────────
+  let selectionTimeout = null;
+
+  // Walk up the DOM to find the nearest .claude-body ancestor
+  function getClaudeBody(node) {
+    let el = (node.nodeType === 3) ? node.parentElement : node;
+    while (el) {
+      if (el.classList && el.classList.contains('claude-body')) return el;
+      // Stop early if we've left the messages container
+      if (el.id === 'messages-inner') return null;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  document.addEventListener('mouseup', e => {
+    if (toolbar.contains(e.target) || inlineCard.contains(e.target)) return;
+    clearTimeout(selectionTimeout);
+    // Short delay so the browser has finalised the selection range
+    selectionTimeout = setTimeout(() => handleSelectionChange(e), 20);
+  });
+
+  // selectionchange fires while dragging — only act on it when mouse is up
+  // (mouseup will schedule its own call, so we only need selectionchange as
+  // a fallback for keyboard selection)
+  let mouseIsDown = false;
+  document.addEventListener('mousedown', () => { mouseIsDown = true; });
+  document.addEventListener('mouseup',   () => { mouseIsDown = false; });
+
+  document.addEventListener('selectionchange', () => {
+    if (mouseIsDown) return; // ignore mid-drag noise
+    clearTimeout(selectionTimeout);
+    selectionTimeout = setTimeout(handleSelectionChange, 100);
+  });
+
+  function handleSelectionChange(e) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim() === '') {
+      if (!e || (!toolbar.contains(e.target) && !inlineCard.contains(e.target))) {
+        dismissToolbar();
+      }
+      return;
+    }
+
+    const selectedText = sel.toString().trim();
+    if (selectedText.length < 2) { dismissToolbar(); return; }
+
+    const range = sel.getRangeAt(0);
+    const claudeBody = getClaudeBody(range.commonAncestorContainer);
+    if (!claudeBody) { dismissToolbar(); return; }
+
+    activeInlineAnchor = claudeBody;
+
+    // Position toolbar just below the end of the selection
+    const rect = range.getBoundingClientRect();
+    const toolbarW = 290;
+    let left = rect.right - toolbarW;
+    let top  = rect.bottom + 8;
+
+    left = Math.max(8, Math.min(left, window.innerWidth - toolbarW - 8));
+    if (top + 60 > window.innerHeight) top = rect.top - 52;
+
+    toolbar.style.left = left + 'px';
+    toolbar.style.top  = top  + 'px';
+    toolbar.classList.add('visible');
+
+    toolbar._selectedText = selectedText;
+    toolbar._range        = range.cloneRange();
+    toolbar._claudeBody   = claudeBody;
+  }
+
+  function dismissToolbar() {
+    toolbar.classList.remove('visible');
+  }
+
+  function dismissInlineCard() {
+    inlineCard.classList.remove('visible');
+    removeHighlight();
+    iicTextarea.value = '';
+    iicSendBtn.disabled = true;
+  }
+
+  // Dismiss panels on outside click — moved to mouseup so it doesn't
+  // fire before the selection is anchored (fixes the multi-response bug)
+  document.addEventListener('mouseup', e => {
+    if (toolbar.contains(e.target) || inlineCard.contains(e.target)) return;
+    // Only dismiss inline card on a plain click (collapsed selection)
+    const sel = window.getSelection();
+    if (sel && sel.isCollapsed) {
+      dismissInlineCard();
+    }
+  }, true); // capture phase so it runs before the toolbar-show handler
+
+  // ── Toolbar actions ────────────────────────────────────────────────
+  document.getElementById('toolbar-copy-btn').addEventListener('click', () => {
+    const text = toolbar._selectedText || '';
+    navigator.clipboard.writeText(text).catch(() => {});
+    dismissToolbar();
+  });
+
+  document.getElementById('toolbar-reply-btn').addEventListener('click', () => {
+    const text = toolbar._selectedText || '';
+    inputField.value = `"${text}" — `;
+    inputField.style.height = 'auto';
+    inputField.style.height = Math.min(inputField.scrollHeight, 180) + 'px';
+    sendBtn.disabled = false;
+    inputField.focus();
+    const len = inputField.value.length;
+    inputField.setSelectionRange(len, len);
+    dismissToolbar();
+    window.getSelection().removeAllRanges();
+  });
+
+  document.getElementById('toolbar-ask-btn').addEventListener('click', () => {
+    const selectedText = toolbar._selectedText || '';
+    const range = toolbar._range;
+    const claudeBody = toolbar._claudeBody;
+
+    if (!range || !claudeBody) return;
+
+    // Wrap the selected text in a highlight span
+    removeHighlight();
+    try {
+      const span = document.createElement('mark');
+      span.className = 'inline-highlight';
+      range.surroundContents(span);
+      activeHighlightSpan = span;
+    } catch(err) {
+      // Complex ranges can't be surrounded — just proceed without persistent highlight
+    }
+
+    window.getSelection().removeAllRanges();
+    dismissToolbar();
+
+    // Show inline card anchored below the selection
+    const bodyRect = claudeBody.getBoundingClientRect();
+    const highlightEl = activeHighlightSpan || claudeBody;
+    const hlRect = highlightEl.getBoundingClientRect();
+
+    // Position card to the right of content, aligned with selection bottom
+    const cardW = 360;
+    let left = hlRect.right + 12;
+    let top = hlRect.top - 10;
+
+    // If not enough room to the right, place below
+    if (left + cardW > window.innerWidth - 12) {
+      left = Math.max(8, hlRect.left);
+      top = hlRect.bottom + 10;
+    }
+    top = Math.max(8, Math.min(top, window.innerHeight - 160));
+
+    inlineCard.style.left = left + 'px';
+    inlineCard.style.top = top + 'px';
+
+    // Set context label
+    const truncated = selectedText.length > 60 ? selectedText.slice(0, 60) + '…' : selectedText;
+    iicContextLabel.textContent = truncated;
+
+    inlineCard.classList.add('visible');
+    iicTextarea.focus();
+
+    // Store reference to which message to attach response to
+    inlineCard._claudeBody = claudeBody;
+    inlineCard._selectedText = selectedText;
+  });
+
+  function removeHighlight() {
+    if (activeHighlightSpan) {
+      const parent = activeHighlightSpan.parentNode;
+      if (parent) {
+        while (activeHighlightSpan.firstChild) {
+          parent.insertBefore(activeHighlightSpan.firstChild, activeHighlightSpan);
+        }
+        parent.removeChild(activeHighlightSpan);
+        parent.normalize();
+      }
+      activeHighlightSpan = null;
+    }
+  }
+
+  // ── Inline card ────────────────────────────────────────────────────
+  iicTextarea.addEventListener('input', () => {
+    iicTextarea.style.height = 'auto';
+    iicTextarea.style.height = Math.min(iicTextarea.scrollHeight, 100) + 'px';
+    iicSendBtn.disabled = iicTextarea.value.trim() === '';
+  });
+
+  iicTextarea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!iicSendBtn.disabled) submitInline(); }
+    if (e.key === 'Escape') dismissInlineCard();
+  });
+
+  iicSendBtn.addEventListener('click', submitInline);
+
+  function submitInline() {
+    const question = iicTextarea.value.trim();
+    const claudeBody = inlineCard._claudeBody;
+    const selectedText = inlineCard._selectedText || '';
+    if (!question || !claudeBody) return;
+
+    dismissInlineCard();
+
+    // Find the msg-claude-wrap that owns this body
+    const wrapper = claudeBody.closest('.msg-claude-wrap');
+    if (!wrapper) return;
+
+    // Inject inline ask thread below the response
+    const existing = wrapper.querySelector('.inline-ask-wrap');
+    if (existing) existing.remove();
+
+    const askWrap = document.createElement('div');
+    askWrap.className = 'inline-ask-wrap';
+
+    // Show the quoted selection + the question
+    const quoteEl = document.createElement('div');
+    quoteEl.className = 'inline-ask-quote';
+    const truncQ = selectedText.length > 80 ? selectedText.slice(0, 80) + '…' : selectedText;
+    quoteEl.textContent = `"${truncQ}"`;
+
+    // Human question bubble (compact)
+    const qBubble = document.createElement('div');
+    qBubble.style.cssText = 'display:flex;justify-content:flex-end;margin:4px 0 8px;';
+    const qInner = document.createElement('div');
+    qInner.style.cssText = `
+      background: var(--bg-human); border-radius: 12px 12px 3px 12px;
+      padding: 6px 12px; font-size: 14px; line-height: 1.5;
+      max-width: 75%; color: var(--text-100);
+    `;
+    qInner.textContent = question;
+    qBubble.appendChild(qInner);
+
+    // Response area
+    const responseEl = document.createElement('div');
+    responseEl.className = 'inline-ask-response';
+    const cursor = document.createElement('span');
+    cursor.className = 'stream-cursor';
+    responseEl.appendChild(cursor);
+
+    askWrap.appendChild(quoteEl);
+    askWrap.appendChild(qBubble);
+    askWrap.appendChild(responseEl);
+    wrapper.appendChild(askWrap);
+    scrollToBottom();
+
+    // Stream inline response
+    const resp = RESPONSES[responseIdx % RESPONSES.length];
+    responseIdx++;
+    streamInlineResponse(responseEl, cursor, resp);
+  }
+
+  // ── Message builders ───────────────────────────────────────────────
+  function addHumanMessage(text) {
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const el = document.createElement('div');
+    el.className = 'msg-human';
+    el.innerHTML = `
+      <div class="human-bubble">${escapeHtml(text)}</div>
+      <div class="human-meta">
+        <div class="action-row">
+          <button class="act-btn" title="Retry">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.3857 2.50977C14.3486 2.71054 17.5 5.98724 17.5 10C17.5 14.1421 14.1421 17.5 10 17.5C5.85786 17.5 2.5 14.1421 2.5 10C2.5 7.54619 3.67878 5.3677 5.49902 4H3C2.72386 4 2.5 3.77614 2.5 3.5C2.5 3.22386 2.72386 3 3 3H6.5L7 3.5V7C7 7.27614 6.77614 7.5 6.5 7.5C6.22386 7.5 6 7.27614 6 7V4.87891C4.4782 6.06926 3.5 7.91979 3.5 10C3.5 13.5899 6.41015 16.5 10 16.5C13.5899 16.5 16.5 13.5899 16.5 10C16.5 6.5225 13.7691 3.68312 10.335 3.50879L10 3.5C9.72386 3.5 9.5 3.27614 9.5 3C9.5 2.72386 9.72386 2.5 10 2.5L10.3857 2.50977Z"/></svg>
+          </button>
+          <button class="act-btn" title="Edit">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.72821 2.87934C10.0318 2.10869 10.9028 1.72933 11.6735 2.03266L14.4655 3.13226C15.236 3.43593 15.6145 4.30697 15.3112 5.07758L11.3903 15.0307C11.2954 15.2717 11.1394 15.4835 10.9391 15.6459L10.8513 15.7123L7.7077 17.8979C7.29581 18.1843 6.73463 17.9917 6.57294 17.5356L6.54657 17.4409L5.737 13.6987C5.67447 13.4092 5.69977 13.107 5.80829 12.8315L9.72821 2.87934Z"/></svg>
+          </button>
+        </div>
+        <span class="meta-time">${time}</span>
+      </div>
+    `;
+    messagesInner.appendChild(el);
+    scrollToBottom();
+  }
+
+  function addClaudeMessageWrapper() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-claude-wrap';
+    wrapper.innerHTML = `
+      <div class="claude-header">
+        <svg class="claude-avatar-icon" viewBox="0 0 100 100" fill="currentColor">
+          <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/>
+        </svg>
+        <span class="claude-name">Claude</span>
+      </div>
+      <div class="claude-body"></div>
+      <div class="claude-action-row">
+        <button class="act-btn" title="Copy">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M7 2C6.17157 2 5.5 2.67157 5.5 3.5V4H5C3.89543 4 3 4.89543 3 6V16C3 17.1046 3.89543 18 5 18H13C14.1046 18 15 17.1046 15 16V15.5H15.5C16.3284 15.5 17 14.8284 17 14V5.5C17 5.10218 16.842 4.72064 16.5607 4.43934L14.5607 2.43934C14.2794 2.15804 13.8978 2 13.5 2H7ZM7 3H13V5.5C13 6.32843 13.6716 7 14.5 7H16V14C16 14.5523 15.5523 15 15 15H7C6.44772 15 6.5 14.5523 6.5 14V3.5C6.5 3.22386 6.72386 3 7 3Z"/></svg>
+        </button>
+        <button class="act-btn" title="Regenerate">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10.3857 2.50977C14.3486 2.71054 17.5 5.98724 17.5 10C17.5 14.1421 14.1421 17.5 10 17.5C5.85786 17.5 2.5 14.1421 2.5 10C2.5 7.54619 3.67878 5.3677 5.49902 4H3C2.72386 4 2.5 3.77614 2.5 3.5C2.5 3.22386 2.72386 3 3 3H6.5L7 3.5V7C7 7.27614 6.77614 7.5 6.5 7.5C6.22386 7.5 6 7.27614 6 7V4.87891C4.4782 6.06926 3.5 7.91979 3.5 10C3.5 13.5899 6.41015 16.5 10 16.5C13.5899 16.5 16.5 13.5899 16.5 10C16.5 6.5225 13.7691 3.68312 10.335 3.50879C9.72386 3.5 9.5 3.27614 9.5 3C9.5 2.72386 9.72386 2.5 10 2.5L10.3857 2.50977Z"/></svg>
+        </button>
+        <button class="act-btn" title="Thumbs up">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M9.56055 2C11.1381 2.00009 12.3211 3.44332 12.0117 4.99023L11.6094 7H13.8438C15.5431 7 16.836 8.52594 16.5566 10.2021L15.876 14.2842C15.6148 15.8513 14.2586 17 12.6699 17H4.5C3.67157 17 3 16.3284 3 15.5V9.23828C3.00013 8.57996 3.4294 7.99838 4.05859 7.80469L5.19824 7.4541C6.02983 7.15302 6.59327 6.63008 6.89746 5.9541L8.41113 2.58984C8.66235 2.17643 8.97898 2.00002 9.32324 2H9.56055Z"/></svg>
+        </button>
+        <button class="act-btn" title="Thumbs down">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M12.6699 3C14.2586 3 15.6148 4.14871 15.876 5.71582L16.5566 9.79785C16.836 11.4741 15.5431 13 13.8438 13H11.6094L12.0117 15.0098C12.3211 16.5567 11.1381 17.9999 9.56055 18H9.32324C8.97898 18 8.66235 17.8236 8.48047 17.5391L8.41113 17.4102L6.89746 14.0459C6.59327 13.3699 6.02983 12.847 5.33789 12.5928L5.19824 12.5459L4.05859 12.1953C3.4294 12.0016 3.00013 11.42 3 10.7617V4.5C3 3.67157 3.67157 3 4.5 3H12.6699Z"/></svg>
+        </button>
+      </div>
+    `;
+    messagesInner.appendChild(wrapper);
+    return wrapper.querySelector('.claude-body');
+  }
+
+  // ── Streaming ──────────────────────────────────────────────────────
+  function streamMainResponse(html) {
+    isStreaming = true;
+    const body = addClaudeMessageWrapper();
+    const cursor = document.createElement('span');
+    cursor.className = 'stream-cursor';
+    body.appendChild(cursor);
+    scrollToBottom();
+    streamInto(body, cursor, html, () => {
+      isStreaming = false;
+      sendBtn.disabled = inputField.value.trim() === '';
+    });
+  }
+
+  function streamInlineResponse(container, cursor, html) {
+    streamInto(container, cursor, html, () => {});
+  }
+
+  function streamInto(container, cursor, html, onDone) {
+    const plainLen = html.replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, ' ').length;
+    let charIdx = 0;
+
+    function tick() {
+      if (charIdx >= plainLen) {
+        cursor.remove();
+        onDone();
+        return;
+      }
+      charIdx = Math.min(charIdx + Math.floor(Math.random() * 4) + 1, plainLen);
+      container.innerHTML = renderUpTo(html, charIdx);
+      container.appendChild(cursor);
+      scrollToBottom();
+      setTimeout(tick, Math.random() * 18 + 6);
+    }
+    tick();
+  }
+
+  function renderUpTo(html, targetChars) {
+    let textSeen = 0, result = '', i = 0;
+    const len = html.length;
+    const tagStack = [];
+    while (i < len) {
+      if (html[i] === '<') {
+        const end = html.indexOf('>', i);
+        if (end === -1) break;
+        const tag = html.slice(i, end + 1);
+        result += tag;
+        if (!tag.startsWith('</') && !tag.endsWith('/>')) {
+          const m = tag.match(/^<(\w+)/);
+          if (m) tagStack.push(m[1]);
+        } else if (tag.startsWith('</')) tagStack.pop();
+        i = end + 1;
+      } else if (html[i] === '&') {
+        const end = html.indexOf(';', i);
+        if (end !== -1 && end - i <= 8) {
+          if (textSeen < targetChars) { result += html.slice(i, end + 1); textSeen++; } else break;
+          i = end + 1;
+        } else {
+          if (textSeen < targetChars) { result += html[i]; textSeen++; i++; } else break;
+        }
+      } else {
+        if (textSeen < targetChars) { result += html[i]; textSeen++; i++; } else break;
+      }
+    }
+    while (tagStack.length) result += `</${tagStack.pop()}>`;
+    return result;
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────
+  function scrollToBottom() { messagesWrap.scrollTop = messagesWrap.scrollHeight; }
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function newChat() {
+    dismissToolbar(); dismissInlineCard(); isStreaming = false;
+    messagesInner.innerHTML = `
+      <div class="empty-state" id="empty-state">
+        <svg width="36" height="36" viewBox="0 0 100 100" fill="currentColor"><path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z"/></svg>
+        <p>Ask something to get started</p>
+      </div>`;
+    convoTitle.textContent = 'New conversation';
+    inputField.value = ''; inputField.style.height = 'auto';
+    sendBtn.disabled = true; messageCount = 0;
+  }
+</script>
+</body>
+</html>
