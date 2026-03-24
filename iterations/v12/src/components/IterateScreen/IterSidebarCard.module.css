@@ -1,0 +1,87 @@
+.wrapper {
+  position: absolute;
+  top: 0;
+  width: 490px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.wrapper.selected .sidebar {
+  border-color: #b2dafd;
+}
+.wrapper:global(.is-dragging) {
+  z-index: 20;
+}
+
+.prompt {
+  background: #f0eee5;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text-pri);
+  line-height: 1.4;
+  letter-spacing: -.28px;
+}
+
+.sidebar {
+  background: var(--bg-card);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.titleBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 12px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.titleLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-sec);
+  cursor: grab;
+  flex-shrink: 0;
+}
+.dragHandle:active { cursor: grabbing; }
+
+.versionTitle {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-sec);
+  letter-spacing: -.24px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.content {
+  padding: 16px;
+  background: var(--bg-card);
+}
+
+.body {
+  font-family: 'Tiempos Headline', Georgia, serif;
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--text-pri);
+  line-height: 1.4;
+  letter-spacing: .14px;
+  outline: none;
+  border-radius: 4px;
+}
+.body[contenteditable="true"] { cursor: text; }
+.body[contenteditable="true"]:focus {
+  box-shadow: 0 0 0 2px rgba(79,158,232,.2);
+}
+.body p + p { margin-top: 14px; }
