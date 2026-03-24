@@ -1,0 +1,13 @@
+.canvasWorld {
+  position: absolute;
+  top: 0; left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  padding: 48px 48px 160px;
+}
+
+.canvasLayout {
+  position: relative;
+  min-width: 1100px;
+  min-height: 700px;
+}

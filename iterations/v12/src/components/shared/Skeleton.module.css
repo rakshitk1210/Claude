@@ -1,0 +1,29 @@
+.skelGroup { margin-bottom: 22px; }
+.skelGroup:last-child { margin-bottom: 0; }
+
+.skel {
+  height: 19px; border-radius: 999px; margin-bottom: 10px;
+  background: linear-gradient(90deg,
+    rgba(255,255,255,.5) 20%, rgba(220,220,215,.7) 32%,
+    rgba(255,255,255,.5) 47%, rgba(250,249,245,.5) 65%,
+    rgba(255,255,255,.5) 80%),
+    linear-gradient(90deg, #f0efe9, #f0efe9);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+.skel:last-child { width: 80% !important; margin-bottom: 0; }
+
+.skelLine {
+  height: 12px; border-radius: 6px;
+  background: linear-gradient(90deg, #e5e4df 25%, #edede8 50%, #e5e4df 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  margin-bottom: 10px;
+}
+.skelLine:last-child { margin-bottom: 0; }
+
+.inlineSkel { margin: 4px 0; }
+.inlineSkel .skel { height: 19px; margin-bottom: 10px; border-radius: 999px; }
+.inlineSkel .skel:last-child { width: 72% !important; }
+
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }

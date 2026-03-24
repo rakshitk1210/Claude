@@ -1,0 +1,43 @@
+.iterScreen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+.iterScreen.visible { opacity: 1; pointer-events: auto; }
+
+.canvasPane {
+  flex: 1;
+  position: relative;
+  background: var(--bg-page);
+  overflow: hidden;
+  cursor: default;
+}
+
+.inputBar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 48px 14px;
+  z-index: 30;
+  pointer-events: none;
+}
+.inputWrap {
+  width: 752px;
+  max-width: calc(100vw - 148px);
+  pointer-events: auto;
+}
+.disclaimer {
+  font-size: 16px;
+  color: var(--text-sec);
+  letter-spacing: -.32px;
+  line-height: 1.4;
+  margin-top: 12px;
+  pointer-events: auto;
+  text-align: center;
+}

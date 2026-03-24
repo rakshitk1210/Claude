@@ -1,0 +1,62 @@
+.feedbackTb {
+  position: absolute;
+  bottom: 16px; right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px 4px;
+  gap: 2px;
+  height: 36px;
+}
+
+.stepperBtn {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-sec);
+  transition: background 90ms, color 90ms;
+}
+.stepperBtn:hover { background: var(--bg-sec); color: var(--text-pri); }
+
+.zoomPct {
+  min-width: 32px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -.2px;
+  color: var(--text-pri);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  border-radius: 5px;
+  padding: 2px 4px;
+}
+
+.fbBtn {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-sec);
+  transition: background 90ms, color 90ms;
+}
+.fbBtn:hover { background: var(--bg-sec); color: var(--text-pri); }

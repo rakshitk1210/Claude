@@ -1,0 +1,72 @@
+.userWrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 28px;
+  position: relative;
+}
+.userBubble {
+  max-width: 392px;
+  background: var(--bg-human);
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 16px;
+  color: var(--text-pri);
+  line-height: 1.4;
+  letter-spacing: -.32px;
+}
+
+.hoverActions {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 2px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms;
+}
+.userWrap:hover .hoverActions { opacity: 1; pointer-events: auto; }
+
+.msgGroup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.hoverDelete {
+  position: absolute;
+  right: 0;
+  top: 4px;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.msgGroup:hover .hoverDelete { opacity: 1; pointer-events: auto; }
+
+.aiBubble {
+  font-family: 'Tiempos Headline', Georgia, serif;
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--text-pri);
+  letter-spacing: .01em;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.iconBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-sec);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 100ms;
+  padding: 2px;
+}
+.iconBtn:hover { color: var(--text-pri); }
+.iconBtn.danger:hover { color: #d94f4f; }

@@ -1,0 +1,65 @@
+.askScreen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+.askScreen.visible { opacity: 1; pointer-events: auto; }
+
+.askSplit {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.askLeft {
+  width: 50%;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-page);
+}
+.askLeft.centered {
+  width: 100%;
+  border-right: none;
+  align-items: center;
+}
+.askLeft.centered .askChatScroll { max-width: 840px; width: 100%; }
+
+.resizeHandle {
+  width: 2px;
+  cursor: col-resize;
+  background: #f8f8f8;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  transition: background 150ms;
+}
+.resizeHandle:hover,
+.resizeHandle.dragging { background: var(--accent); }
+.resizeHandle::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -4px; right: -4px;
+}
+
+.askRight {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  overflow: hidden;
+  transition: opacity 200ms ease;
+}
+.askRight.hidden {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}

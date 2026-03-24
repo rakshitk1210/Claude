@@ -1,0 +1,72 @@
+@font-face {
+  font-family: 'Tiempos Headline';
+  src: url('/fonts/test-tiempos-headline-light.woff2') format('woff2');
+  font-weight: 300; font-style: normal;
+}
+@font-face {
+  font-family: 'Tiempos Headline';
+  src: url('/fonts/test-tiempos-headline-regular.woff2') format('woff2');
+  font-weight: 400; font-style: normal;
+}
+@font-face {
+  font-family: 'Tiempos Headline';
+  src: url('/fonts/test-tiempos-headline-medium.woff2') format('woff2');
+  font-weight: 500; font-style: normal;
+}
+
+:root {
+  --bg-page:    #faf9f5;
+  --bg-card:    #ffffff;
+  --bg-sec:     #f0efea;
+  --bg-human:   #f0eee5;
+  --border:     #e7e8e9;
+  --text-pri:   #141413;
+  --text-sec:   #73726c;
+  --text-greet: #3d3d3a;
+  --accent:     #c15f3f;
+  --blue:       #4f9ee8;
+  --dot-color:  #d9d8d4;
+  --shadow:     0 2px 24px rgba(0,0,0,.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; overflow: hidden; }
+body {
+  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-pri);
+  font-size: 14px; line-height: 1.5;
+}
+
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--text-pri);
+  animation: blink .85s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+.skel-group { margin-bottom: 18px; }
+.skel {
+  height: 14px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg, #eae9e4 25%, #f3f2ed 50%, #eae9e4 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.inline-skel .skel { margin-bottom: 8px; }
+
+.rubber-band {
+  position: fixed;
+  border: 1.5px solid var(--blue);
+  background: rgba(79,158,232,.08);
+  pointer-events: none;
+  z-index: 999;
+  display: none;
+}

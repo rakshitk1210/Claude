@@ -1,0 +1,95 @@
+.wrap {
+  margin-bottom: 32px;
+}
+
+.card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 8px 12px 8px 8px;
+  width: 100%;
+  max-width: 547px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.icon {
+  width: 58px;
+  height: 58px;
+  background: #f7f7f7;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-sec);
+}
+
+.title {
+  font-family: 'Tiempos Headline', Georgia, serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-pri);
+  letter-spacing: -.28px;
+  margin-bottom: 2px;
+}
+.type {
+  font-size: 12px;
+  color: var(--text-sec);
+  letter-spacing: -.24px;
+}
+
+.downloadBtn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: white;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-pri);
+  cursor: pointer;
+  letter-spacing: -.32px;
+  transition: background 100ms;
+  flex-shrink: 0;
+}
+.downloadBtn:hover { background: #f7f7f5; }
+
+.actionsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 0;
+  height: 22px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms;
+}
+.wrap:hover .actionsRow {
+  opacity: 1;
+  pointer-events: auto;
+}
+.actionsLeft { display: flex; align-items: center; gap: 4px; }
+.actionsRight { display: flex; align-items: center; gap: 16px; }
+
+.actionBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-sec);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 100ms;
+  padding: 2px;
+}
+.actionBtn:hover { color: var(--text-pri); }
+.actionBtn.danger:hover { color: #d94f4f; }

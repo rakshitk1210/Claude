@@ -1,0 +1,37 @@
+.homeScreen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-page);
+  z-index: 20;
+  transition: opacity 240ms ease, transform 240ms ease;
+}
+.homeScreen.hiding {
+  opacity: 0;
+  transform: translateY(-14px);
+  pointer-events: none;
+}
+
+.greetingRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 36px;
+}
+.greetingLogo { color: var(--accent); flex-shrink: 0; }
+.greetingText {
+  font-family: 'Tiempos Headline', Georgia, serif;
+  font-size: 48px;
+  font-weight: 300;
+  color: var(--text-greet);
+  letter-spacing: -.5px;
+  line-height: 1.1;
+}
+
+.inputArea {
+  width: 752px;
+  max-width: calc(100vw - 112px);
+}

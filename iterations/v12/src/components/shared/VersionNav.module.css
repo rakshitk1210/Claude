@@ -1,0 +1,31 @@
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.verBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-sec);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 100ms;
+  padding: 0;
+}
+.verBtn:hover { color: var(--text-pri); }
+.verBtn.disabled { opacity: .3; cursor: not-allowed; }
+
+.verLabel {
+  font-size: 14px;
+  color: var(--text-sec);
+  letter-spacing: -.32px;
+  white-space: nowrap;
+  min-width: 40px;
+  text-align: center;
+}
+.verLabel.sm { font-size: 14px; min-width: 28px; }

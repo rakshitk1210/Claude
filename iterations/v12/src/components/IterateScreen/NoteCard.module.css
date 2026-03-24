@@ -1,0 +1,45 @@
+.noteCard {
+  width: 281px;
+  padding: 16px 12px;
+  background: #fcf9eb;
+  border: 1px solid #ecb903;
+  border-radius: 12px;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.noteCard.selected {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(79,158,232,.12);
+}
+.noteCard:global(.is-dragging) {
+  box-shadow: 0 14px 36px rgba(0,0,0,.13), 0 0 0 1px rgba(0,0,0,.06);
+  z-index: 20;
+}
+
+.green { background: #f2fbf0; border-color: #199904; }
+.red { background: #fdf7f7; border-color: #d43333; }
+
+.noteTa {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  color: var(--text-pri);
+  line-height: 1.4;
+  letter-spacing: -.28px;
+  resize: none;
+  min-height: 40px;
+  max-height: 220px;
+  margin-bottom: 24px;
+}
+.noteTa::placeholder { color: #c4ba6a; font-style: italic; font-weight: 400; }
+.green .noteTa::placeholder { color: #6ab07a; }
+.red .noteTa::placeholder { color: #b06a5a; }
+
+.noteMeta {
+  font-size: 12px;
+  color: var(--text-sec);
+  letter-spacing: -.24px;
+}

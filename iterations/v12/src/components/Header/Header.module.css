@@ -1,0 +1,90 @@
+.docHeader {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 32px;
+  background: var(--bg-page);
+  flex-shrink: 0;
+  z-index: 30;
+}
+
+.titleWrap {
+  flex: 0 0 auto;
+  width: 300px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-pri);
+  cursor: pointer;
+  letter-spacing: -.32px;
+  line-height: 1.4;
+  transition: opacity 100ms;
+}
+.titleWrap:hover { opacity: .75; }
+
+.titleText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.center { flex: 1; display: flex; justify-content: center; }
+
+.pillGroup {
+  display: flex;
+  align-items: center;
+  border: none;
+  border-radius: 10px;
+  padding: 2px;
+  background: var(--bg-sec);
+}
+
+.pill {
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -.32px;
+  color: var(--text-sec);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.4;
+  transition: background 160ms, color 160ms;
+}
+.pill.active {
+  background: white;
+  color: var(--text-pri);
+  font-weight: 500;
+}
+
+.right {
+  flex: 0 0 auto;
+  width: 300px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.shareBtn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-pri);
+  cursor: pointer;
+  letter-spacing: -.32px;
+  transition: background 100ms, border-color 100ms;
+}
+.shareBtn:hover { background: var(--bg-sec); border-color: #d0cfca; }

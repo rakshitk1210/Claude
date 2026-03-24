@@ -1,0 +1,77 @@
+.chatScroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px 47px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.chatScroll::-webkit-scrollbar { width: 5px; }
+.chatScroll::-webkit-scrollbar-thumb { background: #d0cfca; border-radius: 3px; }
+
+.chatInner {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+}
+
+.msgGroup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.aiLabel {
+  font-family: 'Tiempos Headline', Georgia, serif;
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--text-pri);
+  letter-spacing: .01em;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.deletedMsg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Tiempos Text', 'Tiempos Headline', Georgia, serif;
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--text-sec);
+  letter-spacing: -.32px;
+  margin-bottom: 20px;
+}
+.undoBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-sec);
+  display: flex;
+  align-items: center;
+  transition: color 100ms;
+  width: 20px;
+  height: 20px;
+}
+.undoBtn:hover { color: var(--text-pri); }
+
+.replyBar {
+  padding: 14px 0 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  background: var(--bg-page);
+}
+.replyWrap {
+  width: 752px;
+  max-width: calc(100% - 40px);
+}
+
+.disclaimer {
+  font-size: 11.5px;
+  color: var(--text-sec);
+  letter-spacing: -.1px;
+}

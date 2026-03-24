@@ -1,0 +1,49 @@
+.toolbar {
+  position: fixed;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 6px 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.toolbar.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 14px 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: white;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-pri);
+  transition: background 80ms;
+}
+.btn:hover { background: var(--bg-sec); }
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.btn.primary:hover { background: #a84e2e; border-color: #a84e2e; }
+
+.promptCard {
+  position: fixed;
+  z-index: 401;
+}

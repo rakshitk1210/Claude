@@ -1,0 +1,17 @@
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+.mainWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.screenArea {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
