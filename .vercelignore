@@ -1,0 +1,7 @@
+node_modules
+iterations/v12/node_modules
+.DS_Store
+.netlify
+.claude
+**/.env
+**/.env.*

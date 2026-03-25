@@ -1,0 +1,15 @@
+{
+  "name": "claude-ui-lab",
+  "private": true,
+  "scripts": {
+    "build": "cd iterations/v12 && npm run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@vercel/node": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "~5.9.3"
+  }
+}
