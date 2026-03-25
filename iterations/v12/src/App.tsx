@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { Header } from './components/Header/Header';
 import { HomeScreen } from './components/HomeScreen/HomeScreen';
@@ -15,32 +15,28 @@ const App: React.FC = () => {
   const { screenMode, setScreenMode, setStreaming, setDocTitle } = useAppStore();
   const { addVersion } = useVersionStore();
   const [homeHiding, setHomeHiding] = useState(false);
-  const [generatingDoc, setGeneratingDoc] = useState(false);
+  const homeSubmitLock = useRef(false);
 
   const handleHomeSubmit = useCallback(
     (text: string) => {
+      if (homeSubmitLock.current) return;
+      homeSubmitLock.current = true;
+
       const short = text.length > 40 ? text.slice(0, 38) + '\u2026' : text;
       setDocTitle(short);
 
+      setStreaming(true);
+      setHomeHiding(true);
+      setScreenMode('ask');
+
       void (async () => {
-        setGeneratingDoc(true);
         let html: string;
         try {
           html = await generateDocument(text);
         } catch {
           html = V2_HTML;
-        } finally {
-          setGeneratingDoc(false);
         }
-
-        const label = 'Version 1';
-        addVersion(html, label);
-        setStreaming(true);
-        setHomeHiding(true);
-
-        setTimeout(() => {
-          setScreenMode('ask');
-        }, 220);
+        addVersion(html, 'Version 1');
       })();
     },
     [setDocTitle, addVersion, setStreaming, setScreenMode]
@@ -64,7 +60,6 @@ const App: React.FC = () => {
           <HomeScreen
             hiding={homeHiding || screenMode !== 'home'}
             onSubmit={handleHomeSubmit}
-            inputBusy={generatingDoc}
           />
           {screenMode === 'ask' && <AskScreen visible />}
           {screenMode === 'iterate' && <IterateScreen visible />}

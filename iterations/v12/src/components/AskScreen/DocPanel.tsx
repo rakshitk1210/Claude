@@ -5,6 +5,9 @@ import { useVersionStore } from '../../store/versionStore';
 import { useAppStore } from '../../store/appStore';
 import styles from './DocPanel.module.css';
 
+const SKEL_BLOCK =
+  '<div class="skel-group"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div></div>';
+
 function streamInto(container: HTMLElement, html: string, onDone?: () => void) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
@@ -42,7 +45,9 @@ function streamInto(container: HTMLElement, html: string, onDone?: () => void) {
 export const DocPanel: React.FC = () => {
   const { versions, viewingVersion, setViewingVersion, navigateRevision } =
     useVersionStore();
-  const { isStreaming, setStreaming } = useAppStore();
+  const docTitle = useAppStore((s) => s.docTitle);
+  const isStreaming = useAppStore((s) => s.isStreaming);
+  const setStreaming = useAppStore((s) => s.setStreaming);
   const contentRef = useRef<HTMLDivElement>(null);
   const renderedHtml = useRef<string>('');
 
@@ -50,6 +55,16 @@ export const DocPanel: React.FC = () => {
   const currentHtml = currentVersion
     ? currentVersion.revisions[currentVersion.currentRevision]
     : '';
+
+  const waitingFirstVersion = versions.length === 0 && isStreaming;
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || !waitingFirstVersion) return;
+
+    el.contentEditable = 'false';
+    el.innerHTML = SKEL_BLOCK.repeat(3);
+  }, [waitingFirstVersion]);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -63,15 +78,14 @@ export const DocPanel: React.FC = () => {
     if (isStreaming) {
       renderedHtml.current = htmlToRender;
       el.contentEditable = 'false';
-      const skelHtml = '<div class="skel-group"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div></div>';
-      el.innerHTML = skelHtml.repeat(3);
+      el.innerHTML = SKEL_BLOCK.repeat(3);
 
       timer = setTimeout(() => {
         cancelStream = streamInto(el, htmlToRender, () => {
           setStreaming(false);
           el.contentEditable = 'true';
         });
-      }, 1000 + Math.random() * 300);
+      }, 160 + Math.random() * 100);
     } else {
       renderedHtml.current = htmlToRender;
       el.innerHTML = htmlToRender;
@@ -93,21 +107,26 @@ export const DocPanel: React.FC = () => {
     <>
       <div className={styles.hdr}>
         <div className={styles.versionTabs}>
-          {versions.map((v, i) => (
-            <button
-              key={i}
-              className={`${styles.versionTab} ${i === viewingVersion ? styles.active : ''}`}
-              onClick={() => !isStreaming && setViewingVersion(i)}
-            >
-              {v.label}
-            </button>
-          ))}
+          {waitingFirstVersion ? (
+            <span className={styles.versionTabPending}>Version 1</span>
+          ) : (
+            versions.map((v, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`${styles.versionTab} ${i === viewingVersion ? styles.active : ''}`}
+                onClick={() => !isStreaming && setViewingVersion(i)}
+              >
+                {v.label}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
-          {currentVersion && (
+          {currentVersion ? (
             <>
               <VersionNav
                 current={currentVersion.currentRevision + 1}
@@ -120,28 +139,30 @@ export const DocPanel: React.FC = () => {
                 Version {viewingVersion + 1} &bull; PDF
               </span>
             </>
-          )}
+          ) : waitingFirstVersion ? (
+            <span className={styles.verInfo}>Generating…</span>
+          ) : null}
         </div>
         <div className={styles.toolbarRight}>
           <div className={styles.copyGroup}>
-            <button className={styles.copyBtn} onClick={handleCopy}>
+            <button type="button" className={styles.copyBtn} onClick={handleCopy}>
               Copy
             </button>
-            <button className={styles.copyChevron}>
+            <button type="button" className={styles.copyChevron}>
               <ChevronDown size={16} />
             </button>
           </div>
-          <button className={styles.toolbarIconBtn} title="Refresh">
+          <button type="button" className={styles.toolbarIconBtn} title="Refresh">
             <RefreshIcon size={20} />
           </button>
-          <button className={styles.toolbarIconBtn} title="Close">
+          <button type="button" className={styles.toolbarIconBtn} title="Close">
             <XIcon size={20} />
           </button>
         </div>
       </div>
 
       <div className={styles.docScroll}>
-        <h1 className={styles.heading}>Cover letter for Anthropic</h1>
+        <h1 className={styles.heading}>{docTitle}</h1>
         <div
           ref={contentRef}
           className={styles.content}

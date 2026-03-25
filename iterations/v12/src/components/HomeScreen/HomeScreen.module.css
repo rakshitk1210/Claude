@@ -35,31 +35,3 @@
   width: 752px;
   max-width: calc(100vw - 112px);
 }
-
-.previewSkel {
-  margin-top: 28px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  text-align: left;
-}
-
-.previewSkelHeader {
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-card);
-}
-
-.previewSkelLabel {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-sec);
-  letter-spacing: -0.02em;
-}
-
-.previewSkelBody {
-  padding: 20px 22px 24px;
-  min-height: 200px;
-}
