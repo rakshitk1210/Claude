@@ -5,8 +5,8 @@ import { InlineDocCard } from './InlineDocCard';
 import { useAppStore } from '../../store/appStore';
 import { useVersionStore } from '../../store/versionStore';
 import { useChatStore } from '../../store/chatStore';
-import { useStreamText } from '../../hooks/useStreamText';
-import { V2_HTML } from '../../data/sampleContent';
+import { streamChat } from '../../api/streamChat';
+import { documentRevise } from '../../api/documentRevise';
 import styles from './ChatPanel.module.css';
 
 interface ChatPanelProps {
@@ -21,10 +21,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   docHidden,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const { isStreaming, setStreaming } = useAppStore();
-  const { versions, addVersion, setViewingVersion } = useVersionStore();
-  const { messages, addMessage, toggleDeleted } = useChatStore();
-  const { abort } = useStreamText();
+  const { versions, setViewingVersion, addVersion } = useVersionStore();
+  const { messages, addMessage, appendToMessage, updateMessage, toggleDeleted } = useChatStore();
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -39,39 +39,85 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       const userId = 'user-' + Date.now();
       addMessage({ id: userId, role: 'user', content: text });
 
-      setStreaming(true);
-
-      const verNum = versions.length + 1;
-      const label = `V${verNum} \u2022 Cover letter for Anthropic`;
-      const verIdx = addVersion(V2_HTML, label);
-      setViewingVersion(verIdx);
-
       const aiId = 'ai-' + Date.now();
-      addMessage({
-        id: aiId,
-        role: 'ai',
-        content:
-          'I have thoroughly updated your cover letter to enhance its professionalism. It now conveys your qualifications and experiences in a more polished manner.',
-      });
+      addMessage({ id: aiId, role: 'ai', content: '' });
 
-      const docId = 'doc-' + Date.now();
-      addMessage({
-        id: docId,
-        role: 'doc-card',
-        content: label,
-        versionIdx: verIdx,
-        label,
-      });
-
+      setStreaming(true);
       setTimeout(scrollToBottom, 50);
+
+      const allMessages = useChatStore.getState().messages;
+      const apiMessages = allMessages
+        .filter((m) => !m.deleted && (m.role === 'user' || m.role === 'ai') && m.content)
+        .map((m) => ({
+          role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
+          content: m.content,
+        }));
+
+      const seedMessage = {
+        role: 'user' as const,
+        content: 'Help me draft a cover letter for a role at Anthropic',
+      };
+      const payload = [seedMessage, ...apiMessages];
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      streamChat(payload, {
+        signal: controller.signal,
+        onDelta: (chunk) => {
+          appendToMessage(aiId, chunk);
+          scrollToBottom();
+        },
+        onDone: () => {
+          abortRef.current = null;
+
+          const { versions: curVersions, viewingVersion } = useVersionStore.getState();
+          const currentVersion = curVersions[viewingVersion];
+          if (!currentVersion) {
+            setStreaming(false);
+            return;
+          }
+          const currentHtml = currentVersion.revisions[currentVersion.currentRevision];
+
+          documentRevise(currentHtml, text)
+            .then((revisedHtml) => {
+              const verNum = curVersions.length + 1;
+              const label = `Version ${verNum}`;
+              const verIdx = addVersion(revisedHtml, label);
+              setViewingVersion(verIdx);
+
+              const docId = 'doc-' + Date.now();
+              addMessage({
+                id: docId,
+                role: 'doc-card',
+                content: label,
+                versionIdx: verIdx,
+                label,
+              });
+              setTimeout(scrollToBottom, 50);
+            })
+            .catch(() => {
+              // doc revision failed silently; chat reply is still there
+            })
+            .finally(() => {
+              setStreaming(false);
+            });
+        },
+        onError: (error) => {
+          updateMessage(aiId, `Error: ${error}`);
+          setStreaming(false);
+          abortRef.current = null;
+        },
+      });
     },
-    [isStreaming, versions.length, addVersion, setViewingVersion, addMessage, setStreaming, scrollToBottom]
+    [isStreaming, addMessage, appendToMessage, updateMessage, setStreaming, scrollToBottom, addVersion, setViewingVersion]
   );
 
   const handleStop = useCallback(() => {
-    abort();
+    abortRef.current?.abort();
+    abortRef.current = null;
     setStreaming(false);
-  }, [abort, setStreaming]);
+  }, [setStreaming]);
 
   useEffect(() => {
     scrollToBottom();

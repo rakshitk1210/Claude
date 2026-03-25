@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useEffect } from 'react';
-import { PlusIcon, ArrowUp } from '../shared/Icons';
+import { ArrowUp } from '../shared/Icons';
 import styles from './InlinePromptCard.module.css';
 
 interface InlinePromptCardProps {
@@ -37,7 +37,11 @@ export const InlinePromptCard: React.FC<InlinePromptCardProps> = ({
   );
 
   return (
-    <div className={styles.card} style={{ left: pos.left, top: pos.top }}>
+    <div
+      className={styles.card}
+      style={{ left: pos.left, top: pos.top }}
+      data-inline-prompt
+    >
       <textarea
         ref={fieldRef}
         className={styles.field}
@@ -45,14 +49,9 @@ export const InlinePromptCard: React.FC<InlinePromptCardProps> = ({
         rows={1}
         onKeyDown={handleKeyDown}
       />
-      <div className={styles.row}>
-        <button className={styles.plusBtn}>
-          <PlusIcon size={16} />
-        </button>
-        <button className={styles.sendBtn} onClick={handleSubmit}>
-          <ArrowUp size={16} />
-        </button>
-      </div>
+      <button type="button" className={styles.sendBtn} onClick={handleSubmit} title="Send">
+        <ArrowUp size={20} />
+      </button>
     </div>
   );
 };

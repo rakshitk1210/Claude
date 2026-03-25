@@ -86,21 +86,19 @@ export const InputBar: React.FC<InputBarProps> = ({
       </div>
       <div className={styles.inputTb}>
         <div className={styles.tbLeft}>
-          {isReply ? (
-            <button className={styles.plusIconBtn} title="Attach">
-              <PlusIcon size={24} />
-            </button>
-          ) : (
-            <button className={styles.plusBtn}>
-              <PlusIcon size={14} />
-            </button>
-          )}
+          <button
+            className={styles.plusIconBtn}
+            title="Attach"
+            type="button"
+          >
+            <PlusIcon size={24} />
+          </button>
         </div>
         <div className={styles.tbRight}>
-          <button className={styles.modelSel}>
-            <b>Opus 4.6</b>&nbsp;
-            <span style={{ color: 'var(--text-sec)' }}>Extended</span>
-            <ChevronDown size={isReply ? 16 : 14} />
+          <button className={styles.modelSel} type="button">
+            <span className={styles.modelName}>Opus 4.6</span>
+            <span className={styles.modelSuffix}> Extended</span>
+            <ChevronDown size={16} />
           </button>
           {isStreaming ? (
             <button

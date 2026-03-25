@@ -3,11 +3,13 @@
   z-index: 400;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  width: 207px;
+  box-sizing: border-box;
   background: var(--bg-card);
   border-radius: 12px;
-  padding: 6px 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+  padding: 8px;
+  box-shadow: 0 2px 24px rgba(0, 0, 0, 0.08);
   opacity: 0;
   pointer-events: none;
   transform: translateY(4px);
@@ -20,30 +22,34 @@
 }
 
 .btn {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 5px;
-  height: 30px;
-  padding: 0 14px 0 10px;
-  border-radius: 6px;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 16px 0 12px;
+  border-radius: 8px;
   border: 1px solid var(--border);
-  background: white;
+  background: var(--bg-card);
   cursor: pointer;
-  font-family: inherit;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 18px;
   color: var(--text-pri);
-  transition: background 80ms;
+  transition: background 100ms, border-color 100ms;
 }
-.btn:hover { background: var(--bg-sec); }
+.btn:hover {
+  background: var(--bg-sec);
+}
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: #fff;
 }
-.btn.primary:hover { background: #a84e2e; border-color: #a84e2e; }
-
-.promptCard {
-  position: fixed;
-  z-index: 401;
+.btn.primary:hover {
+  background: #a84e2e;
+  border-color: #a84e2e;
 }

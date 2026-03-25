@@ -1,5 +1,6 @@
 import React from 'react';
 import { CopyIcon, RefreshIcon, TrashIcon } from '../shared/Icons';
+import { StreamingCursor } from '../shared/StreamingCursor';
 import styles from './ChatMessage.module.css';
 
 interface ChatMessageProps {
@@ -37,6 +38,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     );
   }
 
+  const isEmpty = !content;
+
   return (
     <div className={styles.msgGroup}>
       <div className={styles.hoverDelete}>
@@ -48,7 +51,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           <TrashIcon />
         </button>
       </div>
-      <div className={styles.aiBubble}>{content}</div>
+      <div className={styles.aiBubble}>
+        {isEmpty ? <StreamingCursor /> : content}
+      </div>
     </div>
   );
 };

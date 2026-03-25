@@ -7,6 +7,9 @@ import { useDraggable } from '../../hooks/useDraggable';
 import type { IterSidebarPanel } from '../../store/types';
 import styles from './IterSidebarCard.module.css';
 
+const SKEL_BLOCK =
+  '<div class="skel-group"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div></div>';
+
 function streamInto(container: HTMLElement, html: string, onDone?: () => void) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
@@ -55,12 +58,21 @@ export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({ panel }) => {
 
   useDraggable(cardRef, panel.id, undefined, '[data-drag-handle]');
 
-  const version = versions[panel.verIdx];
+  const isPending = panel.verIdx === null;
+  const verIdx = panel.verIdx;
+  const version = verIdx !== null ? versions[verIdx] : undefined;
   const isSelected = selectedCards.has(panel.id);
 
   useEffect(() => {
     const body = bodyRef.current;
-    if (!body || !version || renderedRef.current) return;
+    if (!body || !isPending) return;
+    body.contentEditable = 'false';
+    body.innerHTML = SKEL_BLOCK.repeat(3);
+  }, [isPending]);
+
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body || isPending || !version || renderedRef.current) return;
     renderedRef.current = true;
 
     const html = version.revisions[version.currentRevision];
@@ -69,15 +81,14 @@ export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({ panel }) => {
 
     if (panel.needsStream) {
       body.contentEditable = 'false';
-      const skelHtml = '<div class="skel-group"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div></div>';
-      body.innerHTML = skelHtml.repeat(3);
+      body.innerHTML = SKEL_BLOCK.repeat(3);
 
       timer = setTimeout(() => {
         cancelStream = streamInto(body, html, () => {
           setStreaming(false);
           body.contentEditable = 'true';
         });
-      }, 950 + Math.random() * 300);
+      }, 140 + Math.random() * 80);
     } else {
       body.innerHTML = html;
       body.contentEditable = 'true';
@@ -88,7 +99,7 @@ export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({ panel }) => {
       if (cancelStream) cancelStream();
       renderedRef.current = false;
     };
-  }, [version, panel.needsStream, setStreaming]);
+  }, [isPending, version, panel.needsStream, setStreaming]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -99,12 +110,11 @@ export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({ panel }) => {
     [toggleCardSelection, panel.id]
   );
 
-  if (!version) return null;
-
   return (
     <div
       ref={cardRef}
       id={panel.id}
+      {...(verIdx !== null ? { 'data-ver-idx': String(verIdx) } : {})}
       className={`${styles.wrapper} ${isSelected ? styles.selected : ''}`}
       style={{ left: panel.x, top: 0 }}
       onClick={handleClick}
@@ -123,14 +133,16 @@ export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({ panel }) => {
                 <circle cx="5" cy="9" r="1" fill="currentColor"/>
               </svg>
             </div>
-            <span className={styles.versionTitle}>{version.label}</span>
+            <span className={styles.versionTitle}>
+              {isPending ? 'Generating…' : version?.label}
+            </span>
           </div>
-          {version.revisions.length > 1 && (
+          {!isPending && version && version.revisions.length > 1 && (
             <VersionNav
               current={version.currentRevision + 1}
               total={version.revisions.length}
-              onPrev={() => navigateRevision(panel.verIdx, -1)}
-              onNext={() => navigateRevision(panel.verIdx, 1)}
+              onPrev={() => navigateRevision(verIdx!, -1)}
+              onNext={() => navigateRevision(verIdx!, 1)}
               size="sm"
             />
           )}

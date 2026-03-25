@@ -33,7 +33,11 @@ export const StopIcon = ({ size = 14, ...p }: P) => (
   </svg>
 );
 export const PlusIcon = ({ size = 14, ...p }: P) => (
-  <svg {...defaults(size)} strokeWidth={1.8} {...p}>
+  <svg
+    {...defaults(size)}
+    strokeWidth={size >= 20 ? 2 : 1.8}
+    {...p}
+  >
     <path d="M12 5v14M5 12h14" />
   </svg>
 );

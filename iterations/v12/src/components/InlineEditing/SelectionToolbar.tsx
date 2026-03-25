@@ -4,7 +4,29 @@ import { InlinePromptCard } from './InlinePromptCard';
 import { useAppStore } from '../../store/appStore';
 import { useStreamText } from '../../hooks/useStreamText';
 import { useVersionStore } from '../../store/versionStore';
+import { inlineEdit } from '../../api/inlineEdit';
 import styles from './SelectionToolbar.module.css';
+
+const ANCHOR_CLASS = 'inline-edit-anchor';
+
+/** Wraps the range in <mark> so highlight persists after focus moves to the prompt. */
+function wrapRangeInAnchorMark(range: Range): HTMLElement | null {
+  const mark = document.createElement('mark');
+  mark.className = ANCHOR_CLASS;
+  try {
+    range.surroundContents(mark);
+    return mark;
+  } catch {
+    try {
+      const frag = range.extractContents();
+      mark.appendChild(frag);
+      range.insertNode(mark);
+      return mark;
+    } catch {
+      return null;
+    }
+  }
+}
 
 export const SelectionToolbar: React.FC = () => {
   const [visible, setVisible] = useState(false);
@@ -14,12 +36,35 @@ export const SelectionToolbar: React.FC = () => {
   const rangeRectRef = useRef<DOMRect | null>(null);
   const selTargetRef = useRef<HTMLElement | null>(null);
   const selModeRef = useRef<'ask' | 'iterate' | null>(null);
+  const anchorMarkRef = useRef<HTMLElement | null>(null);
   const { setStreaming } = useAppStore();
   const { stream } = useStreamText();
   const addRevision = useVersionStore((s) => s.addRevision);
 
+  const clearIterateHighlight = useCallback(() => {
+    const mark = anchorMarkRef.current;
+    anchorMarkRef.current = null;
+    if (!mark || !mark.isConnected) return;
+    const parent = mark.parentNode;
+    if (!parent) return;
+    while (mark.firstChild) {
+      parent.insertBefore(mark.firstChild, mark);
+    }
+    parent.removeChild(mark);
+  }, []);
+
+  useEffect(() => {
+    if (!promptVisible) {
+      clearIterateHighlight();
+    }
+  }, [promptVisible, clearIterateHighlight]);
+
   const handleMouseUp = useCallback((e: MouseEvent) => {
-    if ((e.target as HTMLElement).closest(`.${styles.toolbar}, .${styles.promptCard}`)) return;
+    if (
+      (e.target as HTMLElement).closest('[data-selection-toolbar]') ||
+      (e.target as HTMLElement).closest('[data-inline-prompt]')
+    )
+      return;
 
     setTimeout(() => {
       const sel = window.getSelection();
@@ -51,9 +96,9 @@ export const SelectionToolbar: React.FC = () => {
       if (selTarget.nodeType === Node.TEXT_NODE) selTarget = selTarget.parentElement!;
       selTargetRef.current = (selTarget as HTMLElement).closest('p') || (selTarget as HTMLElement);
 
-      let left = rect.left + rect.width / 2 - 100;
+      let left = rect.left + rect.width / 2 - 103;
       let top = rect.bottom + 8;
-      left = Math.max(8, Math.min(left, window.innerWidth - 220));
+      left = Math.max(8, Math.min(left, window.innerWidth - 215));
       top = Math.min(top, window.innerHeight - 60);
 
       setPos({ left, top });
@@ -63,13 +108,13 @@ export const SelectionToolbar: React.FC = () => {
 
   const handleMouseDown = useCallback(
     (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest(`.${styles.toolbar}`)) return;
-      if (!(e.target as HTMLElement).closest(`.${styles.promptCard}`)) {
+      if ((e.target as HTMLElement).closest('[data-selection-toolbar]')) return;
+      if (!(e.target as HTMLElement).closest('[data-inline-prompt]')) {
         setPromptVisible(false);
       }
       if (
-        !(e.target as HTMLElement).closest(`.${styles.toolbar}`) &&
-        !(e.target as HTMLElement).closest(`.${styles.promptCard}`)
+        !(e.target as HTMLElement).closest('[data-selection-toolbar]') &&
+        !(e.target as HTMLElement).closest('[data-inline-prompt]')
       ) {
         setVisible(false);
       }
@@ -114,74 +159,100 @@ export const SelectionToolbar: React.FC = () => {
   }, []);
 
   const handleIterate = useCallback(() => {
+    clearIterateHighlight();
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    if (!rangeRectRef.current) return;
+
+    const range = sel.getRangeAt(0).cloneRange();
+    selectedTextRef.current = sel.toString().trim() || '';
+
+    const mark = wrapRangeInAnchorMark(range);
+    anchorMarkRef.current = mark;
+
+    sel.removeAllRanges();
+
     setVisible(false);
-    if (rangeRectRef.current) {
-      const rect = rangeRectRef.current;
-      let left = rect.left;
-      let top = rect.bottom + 52;
-      left = Math.max(8, Math.min(left, window.innerWidth - 380));
-      top = Math.min(top, window.innerHeight - 120);
-      setPromptPos({ left, top });
-      setPromptVisible(true);
-    }
-  }, []);
+    const rect = rangeRectRef.current;
+    let left = rect.left;
+    let top = rect.bottom + 48;
+    left = Math.max(8, Math.min(left, window.innerWidth - 328));
+    top = Math.min(top, window.innerHeight - 64);
+    setPromptPos({ left, top });
+    setPromptVisible(true);
+  }, [clearIterateHighlight]);
+
+  const selectedTextRef = useRef<string>('');
 
   const handleInlineSubmit = useCallback((instruction: string) => {
     const target = selTargetRef.current;
     if (!target || !instruction) return;
+    clearIterateHighlight();
     setPromptVisible(false);
 
-    const newText = '<p>I\u2019ve refined this section based on your feedback, emphasizing specific skills and experiences aligned with Anthropic\u2019s mission while maintaining authentic voice.</p>';
+    const selectedText = selectedTextRef.current || target.innerText;
+    const container = selModeRef.current === 'ask'
+      ? target.closest('[class*="content"][contenteditable]')
+      : target.closest('[class*="body"]');
+    const surroundingContext = container?.textContent?.slice(0, 500) || '';
+
+    const skelHtml = '<div class="inline-skel"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div></div>';
+    target.innerHTML = skelHtml;
 
     if (selModeRef.current === 'ask') {
       setStreaming(true);
-      target.innerHTML = '<div class="inline-skel"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div></div>';
+    }
 
-      setTimeout(() => {
+    inlineEdit(selectedText, instruction, surroundingContext)
+      .then((html) => {
         target.innerHTML = '';
-        stream(target, newText, () => {
-          const { versions, viewingVersion } = useVersionStore.getState();
-          const docContent = target.closest('[class*="content"][contenteditable]');
-          if (docContent && versions[viewingVersion]) {
-            addRevision(viewingVersion, docContent.innerHTML);
-          }
-          setStreaming(false);
-        });
-      }, 900 + Math.random() * 400);
-    } else {
-      target.innerHTML = '<div class="inline-skel"><div class="skel" style="width:92%"></div><div class="skel" style="width:86%"></div><div class="skel" style="width:78%"></div></div>';
-
-      setTimeout(() => {
-        target.innerHTML = '';
-        stream(target, newText, () => {
-          const { versions } = useVersionStore.getState();
-          const bodyEl = target.closest('[class*="body"]');
-          if (bodyEl) {
-            const panelEl = bodyEl.closest('[id^="sb-"]');
-            if (panelEl) {
-              const verIdx = parseInt(panelEl.getAttribute('data-ver-idx') || '0', 10);
-              if (versions[verIdx]) {
-                addRevision(verIdx, bodyEl.innerHTML);
+        stream(target, html, () => {
+          if (selModeRef.current === 'ask') {
+            const { versions, viewingVersion } = useVersionStore.getState();
+            const docContent = target.closest('[class*="content"][contenteditable]');
+            if (docContent && versions[viewingVersion]) {
+              addRevision(viewingVersion, docContent.innerHTML);
+            }
+            setStreaming(false);
+          } else {
+            const { versions } = useVersionStore.getState();
+            const bodyEl = target.closest('[class*="body"]');
+            if (bodyEl) {
+              const panelEl = bodyEl.closest('[id^="sb-"]');
+              if (panelEl) {
+                const raw = panelEl.getAttribute('data-ver-idx');
+                if (raw != null && raw !== '') {
+                  const verIdx = parseInt(raw, 10);
+                  if (!Number.isNaN(verIdx) && versions[verIdx]) {
+                    addRevision(verIdx, bodyEl.innerHTML);
+                  }
+                }
               }
             }
           }
         });
-      }, 900 + Math.random() * 400);
-    }
-  }, [setStreaming, stream, addRevision]);
+      })
+      .catch(() => {
+        target.innerHTML = '<p>Failed to edit. Please try again.</p>';
+        if (selModeRef.current === 'ask') {
+          setStreaming(false);
+        }
+      });
+  }, [setStreaming, stream, addRevision, clearIterateHighlight]);
 
   return (
     <>
       <div
         className={`${styles.toolbar} ${visible ? styles.show : ''}`}
         style={{ left: pos.left, top: pos.top }}
+        data-selection-toolbar
       >
-        <button className={styles.btn} onClick={handleReply}>
-          <ReplyIcon />
+        <button type="button" className={styles.btn} onClick={handleReply}>
+          <ReplyIcon size={16} />
           Reply
         </button>
-        <button className={`${styles.btn} ${styles.primary}`} onClick={handleIterate}>
-          <EditIcon />
+        <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleIterate}>
+          <EditIcon size={16} />
           Iterate
         </button>
       </div>
@@ -189,7 +260,9 @@ export const SelectionToolbar: React.FC = () => {
       {promptVisible && (
         <InlinePromptCard
           pos={promptPos}
-          onClose={() => setPromptVisible(false)}
+          onClose={() => {
+            setPromptVisible(false);
+          }}
           onSubmit={handleInlineSubmit}
         />
       )}

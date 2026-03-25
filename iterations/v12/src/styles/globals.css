@@ -62,6 +62,15 @@ body {
 }
 .inline-skel .skel { margin-bottom: 8px; }
 
+/* Inline Iterate: keeps selection visible while the prompt is focused */
+mark.inline-edit-anchor {
+  background: rgba(178, 218, 253, 0.42);
+  color: inherit;
+  padding: 0;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(79, 158, 232, 0.35);
+}
+
 .rubber-band {
   position: fixed;
   border: 1.5px solid var(--blue);

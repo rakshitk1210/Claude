@@ -1,7 +1,7 @@
 .inputWrap {
   background: var(--bg-card);
   border-radius: 18px;
-  border: 1px solid var(--border);
+  border: none;
   padding: 20px 20px 14px;
   box-shadow: var(--shadow);
   display: flex;
@@ -10,7 +10,7 @@
   transition: box-shadow 150ms;
 }
 .inputWrap:focus-within {
-  box-shadow: 0 2px 24px rgba(0,0,0,.12), 0 0 0 1.5px rgba(0,0,0,.10);
+  box-shadow: 0 2px 24px rgba(0,0,0,.12);
 }
 
 .replyWrap {
@@ -28,22 +28,22 @@
   width: 100%;
   border: none;
   background: transparent;
-  font-size: 18px;
-  font-weight: 500;
-  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
   color: var(--text-pri);
   resize: none;
   outline: none;
   line-height: 1.4;
-  min-height: 26px;
+  min-height: 22px;
   max-height: 180px;
-  letter-spacing: -.36px;
+  letter-spacing: -0.02em;
 }
-.inputField::placeholder { color: var(--text-sec); font-weight: 400; }
-.inputField.reply {
-  font-size: 16px;
+.inputField::placeholder {
+  color: var(--text-sec);
   font-weight: 400;
-  letter-spacing: -.2px;
+}
+.inputField.reply {
   min-height: 22px;
 }
 
@@ -55,29 +55,29 @@
 .tbLeft  { display: flex; align-items: center; gap: 10px; }
 .tbRight { display: flex; align-items: center; gap: 10px; }
 
-.plusBtn {
-  width: 28px; height: 28px; border-radius: 50%;
-  border: 1.5px solid var(--border); background: transparent; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--text-sec); transition: border-color 100ms, color 100ms; flex-shrink: 0;
-}
-.plusBtn:hover { border-color: var(--text-sec); color: var(--text-pri); }
-
 .plusIconBtn {
   background: none; border: none; cursor: pointer; padding: 0;
-  color: var(--text-sec); display: flex; align-items: center; justify-content: center;
-  transition: color 100ms;
+  width: 24px; height: 24px;
+  color: var(--text-pri); display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: color 100ms, opacity 100ms;
 }
-.plusIconBtn:hover { color: var(--text-pri); }
+.plusIconBtn:hover { color: var(--text-sec); opacity: 0.85; }
 
 .modelSel {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 3px;
   border: none; background: transparent; cursor: pointer;
-  font-family: inherit; font-size: 14.5px; color: var(--text-sec);
-  letter-spacing: -.28px; transition: color 100ms;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-sec);
+  letter-spacing: -0.02em;
+  line-height: 1.4;
+  transition: color 100ms;
 }
 .modelSel:hover { color: var(--text-pri); }
-.modelSel b { color: var(--text-pri); font-weight: 500; }
+.modelName { color: var(--text-pri); font-weight: 400; }
+.modelSuffix { color: var(--text-sec); font-weight: 400; }
 
 .voiceBtn {
   color: var(--text-sec); background: transparent; border: none;

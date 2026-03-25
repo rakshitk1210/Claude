@@ -4,6 +4,8 @@ import type { ChatMessage } from './types';
 interface ChatState {
   messages: ChatMessage[];
   addMessage: (msg: ChatMessage) => void;
+  appendToMessage: (id: string, text: string) => void;
+  updateMessage: (id: string, content: string) => void;
   toggleDeleted: (id: string) => void;
   clearMessages: () => void;
 }
@@ -13,6 +15,20 @@ export const useChatStore = create<ChatState>((set) => ({
 
   addMessage: (msg) =>
     set((s) => ({ messages: [...s.messages, msg] })),
+
+  appendToMessage: (id, text) =>
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === id ? { ...m, content: m.content + text } : m
+      ),
+    })),
+
+  updateMessage: (id, content) =>
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === id ? { ...m, content } : m
+      ),
+    })),
 
   toggleDeleted: (id) =>
     set((s) => ({

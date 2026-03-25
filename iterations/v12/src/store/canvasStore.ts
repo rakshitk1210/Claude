@@ -20,6 +20,8 @@ interface CanvasState {
   updateCardPosition: (id: string, x: number, y: number) => void;
   removeCards: (ids: string[]) => void;
   addSidebarPanel: (panel: IterSidebarPanel) => void;
+  updateSidebarPanel: (id: string, patch: Partial<Omit<IterSidebarPanel, 'id'>>) => void;
+  removeSidebarPanel: (id: string) => void;
   setIterCanvasReady: (v: boolean) => void;
 }
 
@@ -70,6 +72,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   addSidebarPanel: (panel) =>
     set((s) => ({ sidebarPanels: [...s.sidebarPanels, panel] })),
+
+  updateSidebarPanel: (id, patch) =>
+    set((s) => ({
+      sidebarPanels: s.sidebarPanels.map((p) =>
+        p.id === id ? { ...p, ...patch } : p
+      ),
+    })),
+
+  removeSidebarPanel: (id) =>
+    set((s) => ({
+      sidebarPanels: s.sidebarPanels.filter((p) => p.id !== id),
+      selectedCards: new Set([...s.selectedCards].filter((sid) => sid !== id)),
+    })),
 
   setIterCanvasReady: (v) => set({ iterCanvasReady: v }),
 }));

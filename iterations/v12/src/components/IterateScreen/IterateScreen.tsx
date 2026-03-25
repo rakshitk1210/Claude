@@ -12,7 +12,7 @@ import { useVersionStore } from '../../store/versionStore';
 import { useAppStore } from '../../store/appStore';
 import { useChatStore } from '../../store/chatStore';
 import { useStreamText } from '../../hooks/useStreamText';
-import { V1_HTML, V2_HTML } from '../../data/sampleContent';
+import { generateDocument } from '../../api/generateDocument';
 import styles from './IterateScreen.module.css';
 
 const PANEL_SPACING = 830;
@@ -30,7 +30,7 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
   const {
     camX, camY, camScale,
     iterCanvasReady, setIterCanvasReady,
-    sidebarPanels, addSidebarPanel,
+    sidebarPanels, addSidebarPanel, updateSidebarPanel, removeSidebarPanel,
     cards, addCard, removeCards,
     selectedCards, clearSelections,
     setActiveTool,
@@ -46,7 +46,9 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
     if (!iterCanvasReady) setIterCanvasReady(true);
 
     const panels = useCanvasStore.getState().sidebarPanels;
-    const syncedIdxs = new Set(panels.map((p) => p.verIdx));
+    const syncedIdxs = new Set(
+      panels.filter((p) => p.verIdx !== null).map((p) => p.verIdx as number)
+    );
     const chatMessages = useChatStore.getState().messages;
 
     let added = 0;
@@ -88,23 +90,18 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
 
       if (!iterCanvasReady) setIterCanvasReady(true);
 
-      const { versions: latestVersions } = useVersionStore.getState();
-      const verNum = latestVersions.length + 1;
-      const label = `V${verNum} \u2022 Cover letter for Anthropic`;
-      const html = verNum === 1 ? V1_HTML : V2_HTML;
-      const verIdx = addVersion(html, label);
+      const panelId = 'sb-' + Date.now();
+      const panelsBefore = useCanvasStore.getState().sidebarPanels;
+      const newX = 52 + panelsBefore.length * PANEL_SPACING;
 
-      const panels = useCanvasStore.getState().sidebarPanels;
-      const newX = 52 + panels.length * PANEL_SPACING;
       addSidebarPanel({
-        id: 'sb-' + Date.now(),
+        id: panelId,
         prompt: text,
-        verIdx,
+        verIdx: null,
         x: newX,
-        needsStream: true,
       });
 
-      if (panels.length > 0) {
+      if (panelsBefore.length > 0) {
         const paneW = paneRef.current?.clientWidth || 1200;
         const worldX = 48 + newX;
         const targetCamX = Math.round(paneW * 0.5 - worldX * camScale);
@@ -118,8 +115,40 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
           useCanvasStore.getState().setCam(targetCamX, camY, camScale);
         }
       }
+
+      void (async () => {
+        const { versions: latestVersions } = useVersionStore.getState();
+        const verNum = latestVersions.length + 1;
+        const label = `Version ${verNum}`;
+
+        let html: string;
+        try {
+          html = await generateDocument(text);
+        } catch {
+          removeSidebarPanel(panelId);
+          setStreaming(false);
+          return;
+        }
+
+        const verIdx = addVersion(html, label);
+        updateSidebarPanel(panelId, {
+          verIdx,
+          needsStream: true,
+        });
+      })();
     },
-    [isStreaming, setStreaming, iterCanvasReady, setIterCanvasReady, addVersion, addSidebarPanel, camScale, camY]
+    [
+      isStreaming,
+      setStreaming,
+      iterCanvasReady,
+      setIterCanvasReady,
+      addVersion,
+      addSidebarPanel,
+      updateSidebarPanel,
+      removeSidebarPanel,
+      camScale,
+      camY,
+    ]
   );
 
   const handleStop = useCallback(() => {

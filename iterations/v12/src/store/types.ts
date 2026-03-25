@@ -29,7 +29,8 @@ export interface ChatMessage {
 export interface IterSidebarPanel {
   id: string;
   prompt: string;
-  verIdx: number;
+  /** null while waiting for generateDocument */
+  verIdx: number | null;
   x: number;
   needsStream?: boolean;
 }
