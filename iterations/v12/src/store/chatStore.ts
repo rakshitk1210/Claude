@@ -6,6 +6,7 @@ interface ChatState {
   addMessage: (msg: ChatMessage) => void;
   appendToMessage: (id: string, text: string) => void;
   updateMessage: (id: string, content: string) => void;
+  removeMessage: (id: string) => void;
   toggleDeleted: (id: string) => void;
   clearMessages: () => void;
 }
@@ -29,6 +30,9 @@ export const useChatStore = create<ChatState>((set) => ({
         m.id === id ? { ...m, content } : m
       ),
     })),
+
+  removeMessage: (id) =>
+    set((s) => ({ messages: s.messages.filter((m) => m.id !== id) })),
 
   toggleDeleted: (id) =>
     set((s) => ({

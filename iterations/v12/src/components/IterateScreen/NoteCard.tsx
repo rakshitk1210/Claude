@@ -6,6 +6,7 @@ import styles from './NoteCard.module.css';
 
 interface NoteCardProps {
   card: CanvasCardData;
+  onContextMenu?: (cardId: string, x: number, y: number) => void;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -14,7 +15,7 @@ const COLOR_MAP: Record<string, string> = {
   red: styles.red,
 };
 
-export const NoteCard: React.FC<NoteCardProps> = ({ card }) => {
+export const NoteCard: React.FC<NoteCardProps> = ({ card, onContextMenu }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const { updateCardPosition, toggleCardSelection, selectedCards } = useCanvasStore();
 
@@ -56,11 +57,15 @@ export const NoteCard: React.FC<NoteCardProps> = ({ card }) => {
         if ((e.target as HTMLElement).closest('textarea')) return;
         toggleCardSelection(card.id);
       }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu?.(card.id, e.clientX, e.clientY);
+      }}
     >
       <textarea
         ref={taRef}
         className={styles.noteTa}
-        placeholder="Write a note\u2026"
+        placeholder="Write your thoughts here"
         defaultValue={(card.data.text as string) || ''}
         rows={2}
         onInput={handleAutoResize}

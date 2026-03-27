@@ -2,7 +2,8 @@
   "name": "claude-ui-lab",
   "private": true,
   "scripts": {
-    "build": "cd iterations/v12 && npm run build"
+    "build": "cd iterations/v12 && npm run build",
+    "serve:gallery": "serve . -l 8080"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -10,6 +11,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.19.0",
+    "serve": "^14.2.4",
     "typescript": "~5.9.3"
   }
 }

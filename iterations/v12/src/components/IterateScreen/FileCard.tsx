@@ -7,9 +7,10 @@ import styles from './FileCard.module.css';
 
 interface FileCardProps {
   card: CanvasCardData;
+  onContextMenu?: (cardId: string, x: number, y: number) => void;
 }
 
-export const FileCard: React.FC<FileCardProps> = ({ card }) => {
+export const FileCard: React.FC<FileCardProps> = ({ card, onContextMenu }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const { updateCardPosition, toggleCardSelection, selectedCards } = useCanvasStore();
 
@@ -24,6 +25,10 @@ export const FileCard: React.FC<FileCardProps> = ({ card }) => {
       className={`${styles.fileCard} ${isSelected ? styles.selected : ''}`}
       style={{ position: 'absolute', left: card.x, top: card.y }}
       onClick={() => toggleCardSelection(card.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu?.(card.id, e.clientX, e.clientY);
+      }}
     >
       <div className={styles.fileRow}>
         <div className={styles.fileIcon}>

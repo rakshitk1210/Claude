@@ -12,7 +12,7 @@ interface CanvasToolbarProps {
 }
 
 const tools: { id: CanvasTool; icon: React.FC; label: string }[] = [
-  { id: 'select', icon: CursorIcon, label: 'Select' },
+  { id: 'select', icon: CursorIcon, label: 'Move' },
   { id: 'marquee', icon: MarqueeIcon, label: 'Select area' },
   { id: 'hand', icon: HandIcon, label: 'Pan' },
 ];

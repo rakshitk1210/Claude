@@ -1,5 +1,6 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { Canvas } from './Canvas';
+import { CanvasContextMenu } from './CanvasContextMenu';
 import { CanvasToolbar } from './CanvasToolbar';
 import { ZoomControls } from './ZoomControls';
 import { IterSidebarCard } from './IterSidebarCard';
@@ -31,10 +32,16 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
     camX, camY, camScale,
     iterCanvasReady, setIterCanvasReady,
     sidebarPanels, addSidebarPanel, updateSidebarPanel, removeSidebarPanel,
-    cards, addCard, removeCards,
+    cards, addCard, pushDeleteHistory, removeCards, undoDelete,
     selectedCards, clearSelections,
     setActiveTool,
   } = useCanvasStore();
+
+  const [ctxMenu, setCtxMenu] = useState<{ cardId: string; x: number; y: number } | null>(null);
+
+  const handleCardContextMenu = useCallback((cardId: string, x: number, y: number) => {
+    setCtxMenu({ cardId, x, y });
+  }, []);
 
   const { versions, addVersion } = useVersionStore();
   const { isStreaming, setStreaming, screenMode } = useAppStore();
@@ -101,6 +108,10 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
         x: newX,
       });
 
+      // Mirror the user prompt into chatStore so Ask mode sees it
+      const userId = 'user-' + Date.now();
+      useChatStore.getState().addMessage({ id: userId, role: 'user', content: text });
+
       if (panelsBefore.length > 0) {
         const paneW = paneRef.current?.clientWidth || 1200;
         const worldX = 48 + newX;
@@ -126,6 +137,7 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
           html = await generateDocument(text);
         } catch {
           removeSidebarPanel(panelId);
+          useChatStore.getState().removeMessage(userId);
           setStreaming(false);
           return;
         }
@@ -134,6 +146,16 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
         updateSidebarPanel(panelId, {
           verIdx,
           needsStream: true,
+        });
+
+        // Mirror the resulting version into chatStore so Ask mode shows the doc card
+        const docId = 'doc-' + Date.now();
+        useChatStore.getState().addMessage({
+          id: docId,
+          role: 'doc-card',
+          content: label,
+          versionIdx: verIdx,
+          label,
         });
       })();
     },
@@ -179,11 +201,14 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
     const noteCount = cards.filter((c) => c.type === 'note').length;
     const colorNames = ['yellow', 'green', 'red'];
     const id = 'note-' + Date.now();
+    const nextY = cards.length === 0
+      ? 0
+      : Math.max(...cards.map((c) => c.y + (c.type === 'note' ? 154 : 68))) + 16;
     addCard({
       id,
       type: 'note',
       x: cx,
-      y: noteCount * 154,
+      y: nextY,
       data: { color: colorNames[noteCount % 3] },
     });
     setTimeout(() => {
@@ -195,13 +220,15 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
   const handleAddFile = useCallback(() => {
     const PANEL_W = 490;
     const cx = sidebarPanels.length > 0 ? 52 + PANEL_W + 40 : 570;
-    const fileCount = cards.filter((c) => c.type !== 'note').length;
     const id = 'file-' + Date.now();
+    const nextY = cards.length === 0
+      ? 0
+      : Math.max(...cards.map((c) => c.y + (c.type === 'note' ? 154 : 68))) + 16;
     addCard({
       id,
       type: 'file',
       x: cx,
-      y: fileCount * 90 + 66,
+      y: nextY,
       data: { name: "Rakshit's Resume", meta: 'Document \u00b7 PDF' },
     });
     setTimeout(() => {
@@ -218,7 +245,14 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
       if (target.matches('textarea, input, [contenteditable="true"]')) return;
 
       if (e.key === 'Escape') {
+        setCtxMenu(null);
         clearSelections();
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        undoDelete();
         return;
       }
 
@@ -235,6 +269,7 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCards.size > 0) {
         e.preventDefault();
         const ids = [...selectedCards];
+        pushDeleteHistory(ids);
         ids.forEach(id => {
           const el = document.getElementById(id);
           if (el) {
@@ -249,7 +284,7 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [screenMode, selectedCards, clearSelections, setActiveTool, handleAddNote, removeCards]);
+  }, [screenMode, selectedCards, clearSelections, setActiveTool, handleAddNote, pushDeleteHistory, removeCards, undoDelete]);
 
   useEffect(() => {
     if (screenMode !== 'iterate') return;
@@ -265,6 +300,7 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
       const target = e.target as HTMLElement;
       if (
         e.button !== 0 ||
+        useCanvasStore.getState().activeTool === 'hand' ||
         target.closest('.canvas-card, [class*="sidebar"], [class*="Sidebar"], [class*="wrapper"], [id^="sb-"]') ||
         target.closest('textarea, input, button, [contenteditable]') ||
         target.closest('[class*="inputBar"], [class*="InputBar"], [class*="canvasToolbar"], [class*="CanvasToolbar"], [class*="zoomControls"], [class*="ZoomControls"]')
@@ -348,10 +384,10 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
           ))}
           {cards.map((card) => {
             if (card.type === 'note') {
-              return <NoteCard key={card.id} card={card} />;
+              return <NoteCard key={card.id} card={card} onContextMenu={handleCardContextMenu} />;
             }
             if (card.type === 'file') {
-              return <FileCard key={card.id} card={card} />;
+              return <FileCard key={card.id} card={card} onContextMenu={handleCardContextMenu} />;
             }
             return null;
           })}
@@ -388,6 +424,30 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
           </p>
         </div>
       </div>
+
+      {ctxMenu && (
+        <CanvasContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          onDelete={() => {
+            const { selectedCards: sel } = useCanvasStore.getState();
+            const ids = sel.size > 0 && sel.has(ctxMenu.cardId)
+              ? [...sel]
+              : [ctxMenu.cardId];
+            pushDeleteHistory(ids);
+            ids.forEach((id) => {
+              const el = document.getElementById(id);
+              if (el) {
+                el.style.transition = 'opacity 180ms ease, transform 180ms ease';
+                el.style.opacity = '0';
+                el.style.transform = 'scale(0.93)';
+              }
+            });
+            setTimeout(() => removeCards(ids), 180);
+          }}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
     </div>
   );
 };

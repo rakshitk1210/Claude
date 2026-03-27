@@ -45,7 +45,7 @@ export const InlinePromptCard: React.FC<InlinePromptCardProps> = ({
       <textarea
         ref={fieldRef}
         className={styles.field}
-        placeholder="I don't like this part can you fix it?"
+        placeholder="Tell me what to fix?"
         rows={1}
         onKeyDown={handleKeyDown}
       />

@@ -8,6 +8,7 @@ interface CanvasState {
   activeTool: CanvasTool;
   selectedCards: Set<string>;
   cards: CanvasCardData[];
+  deletedCardsHistory: CanvasCardData[][];
   sidebarPanels: IterSidebarPanel[];
   iterCanvasReady: boolean;
 
@@ -18,7 +19,9 @@ interface CanvasState {
   selectCards: (ids: string[]) => void;
   addCard: (card: CanvasCardData) => void;
   updateCardPosition: (id: string, x: number, y: number) => void;
+  pushDeleteHistory: (ids: string[]) => void;
   removeCards: (ids: string[]) => void;
+  undoDelete: () => void;
   addSidebarPanel: (panel: IterSidebarPanel) => void;
   updateSidebarPanel: (id: string, patch: Partial<Omit<IterSidebarPanel, 'id'>>) => void;
   removeSidebarPanel: (id: string) => void;
@@ -32,6 +35,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeTool: 'select',
   selectedCards: new Set<string>(),
   cards: [],
+  deletedCardsHistory: [],
   sidebarPanels: [],
   iterCanvasReady: false,
 
@@ -62,11 +66,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }));
   },
 
+  pushDeleteHistory: (ids) => {
+    const idSet = new Set(ids);
+    const deleted = get().cards.filter((c) => idSet.has(c.id));
+    if (deleted.length === 0) return;
+    set((s) => ({
+      deletedCardsHistory: [...s.deletedCardsHistory.slice(-19), deleted],
+    }));
+  },
+
   removeCards: (ids) => {
     const idSet = new Set(ids);
     set((s) => ({
       cards: s.cards.filter((c) => !idSet.has(c.id)),
       selectedCards: new Set([...s.selectedCards].filter((id) => !idSet.has(id))),
+    }));
+  },
+
+  undoDelete: () => {
+    const { deletedCardsHistory } = get();
+    if (deletedCardsHistory.length === 0) return;
+    const last = deletedCardsHistory[deletedCardsHistory.length - 1];
+    set((s) => ({
+      deletedCardsHistory: s.deletedCardsHistory.slice(0, -1),
+      cards: [...s.cards, ...last],
     }));
   },
 
