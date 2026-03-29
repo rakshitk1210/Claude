@@ -18,6 +18,10 @@ import styles from './IterateScreen.module.css';
 
 const PANEL_SPACING = 830;
 
+type CtxMenuState =
+  | { kind: 'card'; cardId: string; x: number; y: number }
+  | { kind: 'sidebar'; panelId: string; x: number; y: number };
+
 interface IterateScreenProps {
   visible: boolean;
 }
@@ -37,14 +41,18 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
     setActiveTool,
   } = useCanvasStore();
 
-  const [ctxMenu, setCtxMenu] = useState<{ cardId: string; x: number; y: number } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
 
   const handleCardContextMenu = useCallback((cardId: string, x: number, y: number) => {
-    setCtxMenu({ cardId, x, y });
+    setCtxMenu({ kind: 'card', cardId, x, y });
+  }, []);
+
+  const handleSidebarContextMenu = useCallback((panelId: string, x: number, y: number) => {
+    setCtxMenu({ kind: 'sidebar', panelId, x, y });
   }, []);
 
   const { versions, addVersion } = useVersionStore();
-  const { isStreaming, setStreaming, screenMode } = useAppStore();
+  const { isStreaming, setStreaming, screenMode, homePrompt } = useAppStore();
   const { abort } = useStreamText();
 
   useEffect(() => {
@@ -62,9 +70,9 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
     versions.forEach((_, i) => {
       if (syncedIdxs.has(i)) return;
 
-      let prompt = 'Cover letter iteration';
+      let prompt = 'Document iteration';
       if (i === 0) {
-        prompt = 'Help me draft a cover letter for a role at Anthropic';
+        prompt = homePrompt.trim() || 'Initial document';
       } else {
         const docCard = chatMessages.find(
           (m) => m.role === 'doc-card' && m.versionIdx === i
@@ -88,7 +96,14 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
       });
       added++;
     });
-  }, [visible, versions, iterCanvasReady, setIterCanvasReady, addSidebarPanel]);
+  }, [
+    visible,
+    versions,
+    homePrompt,
+    iterCanvasReady,
+    setIterCanvasReady,
+    addSidebarPanel,
+  ]);
 
   const handleCanvasSubmit = useCallback(
     (text: string) => {
@@ -218,23 +233,27 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
   }, [addCard, cards, sidebarPanels.length, autoPanToCard]);
 
   const handleAddFile = useCallback(() => {
-    const PANEL_W = 490;
-    const cx = sidebarPanels.length > 0 ? 52 + PANEL_W + 40 : 570;
-    const id = 'file-' + Date.now();
-    const nextY = cards.length === 0
-      ? 0
-      : Math.max(...cards.map((c) => c.y + (c.type === 'note' ? 154 : 68))) + 16;
-    addCard({
-      id,
-      type: 'file',
-      x: cx,
-      y: nextY,
-      data: { name: "Rakshit's Resume", meta: 'Document \u00b7 PDF' },
-    });
-    setTimeout(() => {
-      const el = document.getElementById(id);
-      if (el) autoPanToCard(el);
-    }, 50);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '*/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const ext = file.name.includes('.') ? file.name.split('.').pop()!.toUpperCase() : 'File';
+      const meta = `Document \u00b7 ${ext}`;
+      const PANEL_W = 490;
+      const cx = sidebarPanels.length > 0 ? 52 + PANEL_W + 40 : 570;
+      const id = 'file-' + Date.now();
+      const nextY = cards.length === 0
+        ? 0
+        : Math.max(...cards.map((c) => c.y + (c.type === 'note' ? 154 : 68))) + 16;
+      addCard({ id, type: 'file', x: cx, y: nextY, data: { name: file.name, meta } });
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) autoPanToCard(el);
+      }, 50);
+    };
+    input.click();
   }, [addCard, cards, sidebarPanels.length, autoPanToCard]);
 
   useEffect(() => {
@@ -380,7 +399,11 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
       >
         <Canvas camX={camX} camY={camY} camScale={camScale}>
           {sidebarPanels.map((panel) => (
-            <IterSidebarCard key={panel.id} panel={panel} />
+            <IterSidebarCard
+              key={panel.id}
+              panel={panel}
+              onContextMenu={handleSidebarContextMenu}
+            />
           ))}
           {cards.map((card) => {
             if (card.type === 'note') {
@@ -429,11 +452,86 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
         <CanvasContextMenu
           x={ctxMenu.x}
           y={ctxMenu.y}
+          onDuplicate={() => {
+            const uniq = () =>
+              `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+            if (ctxMenu.kind === 'sidebar') {
+              const { sidebarPanels, selectedCards: sel } =
+                useCanvasStore.getState();
+              const panelIdSet = new Set(sidebarPanels.map((p) => p.id));
+              const ids =
+                sel.size > 0 && sel.has(ctxMenu.panelId)
+                  ? [...sel].filter((id) => panelIdSet.has(id))
+                  : [ctxMenu.panelId];
+              ids.forEach((id, i) => {
+                const panel = sidebarPanels.find((p) => p.id === id);
+                if (!panel) return;
+                addSidebarPanel({
+                  id: `sb-${uniq()}-${i}`,
+                  prompt: panel.prompt,
+                  verIdx: panel.verIdx,
+                  x: panel.x + 56 + i * 12,
+                  needsStream:
+                    panel.verIdx === null ? panel.needsStream : false,
+                });
+              });
+              return;
+            }
+
+            const { cards, selectedCards: sel } = useCanvasStore.getState();
+            const cardIdSet = new Set(cards.map((c) => c.id));
+            const ids =
+              sel.size > 0 && sel.has(ctxMenu.cardId)
+                ? [...sel].filter((id) => cardIdSet.has(id))
+                : [ctxMenu.cardId];
+            const OFFSET = 36;
+            ids.forEach((id, i) => {
+              const card = cards.find((c) => c.id === id);
+              if (!card) return;
+              const data: Record<string, unknown> = { ...card.data };
+              if (card.type === 'note') {
+                const root = document.getElementById(id);
+                const ta = root?.querySelector('textarea');
+                if (ta) data.text = ta.value;
+              }
+              addCard({
+                ...card,
+                id: `${card.type}-${uniq()}-${i}`,
+                x: card.x + OFFSET + i * 12,
+                y: card.y + OFFSET + i * 12,
+                data,
+              });
+            });
+          }}
           onDelete={() => {
+            if (ctxMenu.kind === 'sidebar') {
+              const { selectedCards: sel, sidebarPanels: panels } =
+                useCanvasStore.getState();
+              const panelIdSet = new Set(panels.map((p) => p.id));
+              const ids =
+                sel.size > 0 && sel.has(ctxMenu.panelId)
+                  ? [...sel].filter((id) => panelIdSet.has(id))
+                  : [ctxMenu.panelId];
+              ids.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) {
+                  el.style.transition = 'opacity 180ms ease, transform 180ms ease';
+                  el.style.opacity = '0';
+                  el.style.transform = 'scale(0.93)';
+                }
+              });
+              setTimeout(() => {
+                ids.forEach((id) => removeSidebarPanel(id));
+              }, 180);
+              return;
+            }
+
             const { selectedCards: sel } = useCanvasStore.getState();
-            const ids = sel.size > 0 && sel.has(ctxMenu.cardId)
-              ? [...sel]
-              : [ctxMenu.cardId];
+            const ids =
+              sel.size > 0 && sel.has(ctxMenu.cardId)
+                ? [...sel]
+                : [ctxMenu.cardId];
             pushDeleteHistory(ids);
             ids.forEach((id) => {
               const el = document.getElementById(id);

@@ -50,8 +50,15 @@ export function usePanZoom(paneRef: React.RefObject<HTMLDivElement | null>) {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const r = pane.getBoundingClientRect();
-      zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.035 : 1 / 1.035);
+      if (e.ctrlKey) {
+        // Pinch gesture — browser sets ctrlKey=true for trackpad pinch
+        const r = pane.getBoundingClientRect();
+        zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.098 : 1 / 1.098);
+      } else {
+        // Two-finger swipe — pan the canvas
+        const { camX, camY, camScale, setCam } = useCanvasStore.getState();
+        setCam(camX - e.deltaX, camY - e.deltaY, camScale);
+      }
     };
 
     const onKeyDown = (e: KeyboardEvent) => {

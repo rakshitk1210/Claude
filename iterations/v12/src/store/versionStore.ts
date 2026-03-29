@@ -7,6 +7,7 @@ interface VersionState {
   addVersion: (html: string, label: string) => number;
   setViewingVersion: (idx: number) => void;
   addRevision: (verIdx: number, html: string) => void;
+  patchRevision: (verIdx: number, html: string) => void;
   navigateRevision: (verIdx: number, direction: -1 | 1) => void;
 }
 
@@ -40,6 +41,18 @@ export const useVersionStore = create<VersionState>((set, get) => ({
       const v = { ...versions[verIdx] };
       v.revisions = [...v.revisions, html];
       v.currentRevision = v.revisions.length - 1;
+      versions[verIdx] = v;
+      return { versions };
+    });
+  },
+
+  patchRevision: (verIdx, html) => {
+    set((state) => {
+      const versions = [...state.versions];
+      const v = { ...versions[verIdx] };
+      const revisions = [...v.revisions];
+      revisions[v.currentRevision] = html;
+      v.revisions = revisions;
       versions[verIdx] = v;
       return { versions };
     });

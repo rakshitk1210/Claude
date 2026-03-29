@@ -1,19 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { getFallbackHtml } from './fallback';
 
 export const CHAT_SYSTEM = `You are a helpful writing assistant. Your tone is simple, clean, humble, and to the point.
 Keep every reply under 100 words. Be direct — no filler, no preamble.
-You are helping the user with a cover letter or similar professional document.
 Reply in plain text only (no markdown, no HTML, no bullet lists).`;
 
-export const DOCUMENT_SYSTEM = `You write professional cover letters as HTML for an in-app editor.
+export const DOCUMENT_SYSTEM = `You write documents as HTML for an in-app editor.
 
 Rules:
 - Output ONLY HTML. No markdown, no code fences, no preamble or explanation before or after the HTML.
-- Use <p> elements for every paragraph. For the sign-off, use one <p> with <br> between lines if needed (e.g. "Warm regards,<br>Rakshit").
-- Tone: simple, clean, humble, and to the point.
-- Write a complete, believable letter. Do NOT use bracket placeholders like [X], [Company], or [Your Name]. Invent plausible, specific experience and outcomes when the user does not provide them, aligned with their request.
-- Match the role and company implied by the user's request (e.g. Anthropic, product design).`;
+- Use <p> elements for every paragraph. For multi-line sign-offs or stacked lines, use one <p> with <br> between lines.
+- Match the genre, tone, and length the user requests — essay, short bio, personal statement, creative piece, professional letter, etc. Only use letter conventions (salutation, sign-off) when the user is asking for a letter or something that clearly calls for them.
+- Tone: simple, clean, humble, and to the point unless the request calls for a different register.
+- Write complete, specific content. Do NOT use bracket placeholders like [X] or [Your Name]. Invent plausible details when the user does not provide them, aligned with their request.`;
 
 export const INLINE_EDIT_SYSTEM = `You are an inline text editor. The user selected some text in a document and gave an instruction.
 Rewrite ONLY the selected text according to the instruction.
@@ -21,15 +21,15 @@ Output ONLY the replacement HTML (using <p> tags for paragraphs). No preamble, n
 Keep the same general length unless the instruction asks for more or less.
 Tone: simple, clean, humble, and to the point.`;
 
-export const DOCUMENT_REVISE_SYSTEM = `You revise professional cover letters as HTML for an in-app editor.
+export const DOCUMENT_REVISE_SYSTEM = `You revise documents as HTML for an in-app editor.
 
 Rules:
 - You receive the current document HTML and the user's change request.
 - Output ONLY the full revised document HTML. No markdown, no code fences, no preamble or explanation.
-- Use <p> elements for every paragraph. For the sign-off, use one <p> with <br> between lines if needed.
-- Tone: simple, clean, humble, and to the point.
-- Do NOT use bracket placeholders like [X], [Company], or [Your Name].
-- Apply the requested changes while keeping the rest of the letter intact.`;
+- Use <p> elements for every paragraph. For multi-line sign-offs or stacked lines, use one <p> with <br> between lines.
+- Tone: simple, clean, humble, and to the point unless the document calls for a different register.
+- Do NOT use bracket placeholders like [X] or [Your Name].
+- Apply the requested changes while keeping the rest of the document intact.`;
 
 export function extractDocumentHtml(raw: string): string {
   const trimmed = raw.trim();
@@ -127,7 +127,7 @@ export async function handleDocument(
       messages: [
         {
           role: 'user',
-          content: `Write the full cover letter HTML for this request:\n\n${userPrompt}`,
+          content: `Write the full document HTML for this request:\n\n${userPrompt}`,
         },
       ],
     });
@@ -135,21 +135,16 @@ export async function handleDocument(
     const raw = textFromMessage(msg);
     const html = extractDocumentHtml(raw);
     if (!html.includes('<p')) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: 'Model did not return valid paragraph HTML',
-        })
-      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ html: getFallbackHtml(userPrompt), fallback: true }));
       return;
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ html }));
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: msg }));
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ html: getFallbackHtml(userPrompt), fallback: true }));
   }
 }
 
@@ -219,15 +214,14 @@ export async function handleDocumentRevise(
     const raw = textFromMessage(msg);
     const html = extractDocumentHtml(raw);
     if (!html.includes('<p')) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Model did not return valid paragraph HTML' }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ html: currentHtml, fallback: true }));
       return;
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ html }));
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: msg }));
+  } catch {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ html: currentHtml, fallback: true }));
   }
 }

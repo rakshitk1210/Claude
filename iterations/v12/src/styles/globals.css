@@ -79,3 +79,14 @@ mark.inline-edit-anchor {
   z-index: 999;
   display: none;
 }
+
+mark.feedback-like {
+  background: rgba(34, 197, 94, 0.18);
+  color: inherit;
+  border-radius: 2px;
+}
+mark.feedback-dislike {
+  background: rgba(239, 68, 68, 0.18);
+  color: inherit;
+  border-radius: 2px;
+}

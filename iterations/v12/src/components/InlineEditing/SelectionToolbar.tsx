@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ReplyIcon, EditIcon } from '../shared/Icons';
+import { ReplyIcon, EditIcon, ThumbsUpIcon, ThumbsDownIcon } from '../shared/Icons';
 import { InlinePromptCard } from './InlinePromptCard';
 import { useAppStore } from '../../store/appStore';
 import { useStreamText } from '../../hooks/useStreamText';
@@ -8,6 +8,28 @@ import { inlineEdit } from '../../api/inlineEdit';
 import styles from './SelectionToolbar.module.css';
 
 const ANCHOR_CLASS = 'inline-edit-anchor';
+
+function findFeedbackMark(range: Range): HTMLElement | null {
+  let node: Node | null = range.commonAncestorContainer;
+  if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+  while (node && node !== document.body) {
+    if (
+      node instanceof HTMLElement &&
+      node.tagName === 'MARK' &&
+      (node.classList.contains('feedback-like') || node.classList.contains('feedback-dislike'))
+    ) return node;
+    node = (node as HTMLElement).parentElement;
+  }
+  return null;
+}
+
+function unwrapMark(mark: HTMLElement) {
+  const parent = mark.parentNode;
+  if (!parent) return;
+  while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+  parent.removeChild(mark);
+  parent.normalize();
+}
 
 /** Wraps the range in <mark> so highlight persists after focus moves to the prompt. */
 function wrapRangeInAnchorMark(range: Range): HTMLElement | null {
@@ -31,15 +53,18 @@ function wrapRangeInAnchorMark(range: Range): HTMLElement | null {
 export const SelectionToolbar: React.FC = () => {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ left: 0, top: 0 });
+  const [feedbackState, setFeedbackState] = useState<'none' | 'like' | 'dislike'>('none');
   const [promptVisible, setPromptVisible] = useState(false);
   const [promptPos, setPromptPos] = useState({ left: 0, top: 0 });
   const rangeRectRef = useRef<DOMRect | null>(null);
   const selTargetRef = useRef<HTMLElement | null>(null);
   const selModeRef = useRef<'ask' | 'iterate' | null>(null);
   const anchorMarkRef = useRef<HTMLElement | null>(null);
+  const selRangeRef = useRef<Range | null>(null);
   const { setStreaming } = useAppStore();
   const { stream } = useStreamText();
   const addRevision = useVersionStore((s) => s.addRevision);
+  const patchRevision = useVersionStore((s) => s.patchRevision);
 
   const clearIterateHighlight = useCallback(() => {
     const mark = anchorMarkRef.current;
@@ -91,6 +116,13 @@ export const SelectionToolbar: React.FC = () => {
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       rangeRectRef.current = rect;
+      selRangeRef.current = range.cloneRange();
+
+      const existingMark = findFeedbackMark(range);
+      setFeedbackState(
+        existingMark?.classList.contains('feedback-like') ? 'like' :
+        existingMark?.classList.contains('feedback-dislike') ? 'dislike' : 'none'
+      );
 
       let selTarget = range.commonAncestorContainer;
       if (selTarget.nodeType === Node.TEXT_NODE) selTarget = selTarget.parentElement!;
@@ -130,6 +162,66 @@ export const SelectionToolbar: React.FC = () => {
       document.removeEventListener('mousedown', handleMouseDown);
     };
   }, [handleMouseUp, handleMouseDown]);
+
+  const applyFeedbackMark = useCallback((type: 'like' | 'dislike') => {
+    const range = selRangeRef.current;
+    if (!range) { setVisible(false); return; }
+
+    const existingMark = findFeedbackMark(range);
+    if (existingMark) {
+      const existingType = existingMark.classList.contains('feedback-like') ? 'like' : 'dislike';
+      if (existingType === type) {
+        // Same type — toggle off
+        unwrapMark(existingMark);
+      } else {
+        // Opposite type — switch
+        existingMark.className = type === 'like' ? 'feedback-like' : 'feedback-dislike';
+      }
+    } else {
+      // No existing mark — wrap
+      const mark = document.createElement('mark');
+      mark.className = type === 'like' ? 'feedback-like' : 'feedback-dislike';
+      try {
+        range.surroundContents(mark);
+      } catch {
+        try {
+          const frag = range.extractContents();
+          mark.appendChild(frag);
+          range.insertNode(mark);
+        } catch { /* cross-node selection — skip */ }
+      }
+    }
+
+    selRangeRef.current = null;
+    window.getSelection()?.removeAllRanges();
+    setFeedbackState('none');
+    setVisible(false);
+
+    // Persist marks back to the version store so the other view stays in sync
+    const target = selTargetRef.current;
+    if (target) {
+      if (selModeRef.current === 'iterate') {
+        const bodyEl = target.closest('[class*="body"]');
+        const panelEl = bodyEl?.closest('[id^="sb-"]');
+        if (bodyEl && panelEl) {
+          const raw = panelEl.getAttribute('data-ver-idx');
+          if (raw != null && raw !== '') {
+            const verIdx = parseInt(raw, 10);
+            if (!Number.isNaN(verIdx)) patchRevision(verIdx, bodyEl.innerHTML);
+          }
+        }
+      } else {
+        const docContent = target.closest<HTMLElement>('[class*="content"][contenteditable]');
+        if (docContent) {
+          const { viewingVersion } = useVersionStore.getState();
+          patchRevision(viewingVersion, docContent.innerHTML);
+        }
+      }
+    }
+  }, [patchRevision]);
+
+  const handleLike = useCallback(() => applyFeedbackMark('like'), [applyFeedbackMark]);
+  const handleDislike = useCallback(() => applyFeedbackMark('dislike'), [applyFeedbackMark]);
 
   const handleReply = useCallback(() => {
     const sel = window.getSelection();
@@ -247,14 +339,34 @@ export const SelectionToolbar: React.FC = () => {
         style={{ left: pos.left, top: pos.top }}
         data-selection-toolbar
       >
-        <button type="button" className={styles.btn} onClick={handleReply}>
-          <ReplyIcon size={16} />
-          Reply
-        </button>
-        <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleIterate}>
-          <EditIcon size={16} />
-          Iterate
-        </button>
+        <div className={styles.feedbackGroup}>
+          <button
+            type="button"
+            className={`${styles.iconBtn} ${feedbackState === 'like' ? styles.iconBtnLiked : ''}`}
+            onClick={handleLike}
+            title={feedbackState === 'like' ? 'Remove like' : 'Like'}
+          >
+            <ThumbsUpIcon size={16} style={feedbackState === 'like' ? { fill: 'currentColor' } : undefined} />
+          </button>
+          <button
+            type="button"
+            className={`${styles.iconBtn} ${feedbackState === 'dislike' ? styles.iconBtnDisliked : ''}`}
+            onClick={handleDislike}
+            title={feedbackState === 'dislike' ? 'Remove dislike' : 'Dislike'}
+          >
+            <ThumbsDownIcon size={16} style={feedbackState === 'dislike' ? { fill: 'currentColor' } : undefined} />
+          </button>
+        </div>
+        <div className={styles.actionGroup}>
+          <button type="button" className={styles.btn} onClick={handleReply}>
+            <ReplyIcon size={16} />
+            Reply
+          </button>
+          <button type="button" className={`${styles.btn} ${styles.primary}`} onClick={handleIterate}>
+            <EditIcon size={16} />
+            Iterate
+          </button>
+        </div>
       </div>
 
       {promptVisible && (

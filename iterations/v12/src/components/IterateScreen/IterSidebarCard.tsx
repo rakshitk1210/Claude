@@ -46,9 +46,13 @@ function streamInto(container: HTMLElement, html: string, onDone?: () => void) {
 
 interface IterSidebarCardProps {
   panel: IterSidebarPanel;
+  onContextMenu?: (panelId: string, x: number, y: number) => void;
 }
 
-export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({ panel }) => {
+export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({
+  panel,
+  onContextMenu,
+}) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
@@ -118,12 +122,16 @@ export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({ panel }) => {
       className={`${styles.wrapper} ${isSelected ? styles.selected : ''}`}
       style={{ left: panel.x, top: 0 }}
       onClick={handleClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu?.(panel.id, e.clientX, e.clientY);
+      }}
     >
       <div className={styles.prompt}>{panel.prompt}</div>
       <div className={styles.sidebar}>
         <div className={styles.titleBar}>
-          <div className={styles.titleLeft}>
-            <div className={styles.dragHandle} data-drag-handle>
+          <div className={styles.titleLeft} data-drag-handle>
+            <div className={styles.dragHandle}>
               <svg width="6" height="10" viewBox="0 0 6 10" fill="none">
                 <circle cx="1" cy="1" r="1" fill="currentColor"/>
                 <circle cx="5" cy="1" r="1" fill="currentColor"/>
