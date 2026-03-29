@@ -2,8 +2,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { getFallbackHtml } from './fallback';
 
-export const CHAT_SYSTEM = `You are a helpful writing assistant. Your tone is simple, clean, humble, and to the point.
-Keep every reply under 100 words. Be direct — no filler, no preamble.
+export const CHAT_SYSTEM = `You are a helpful writing assistant. The first user message contains the original request and the current document. Use it as context for all replies.
+Your tone is simple, clean, humble, and to the point. Keep every reply under 100 words. Be direct — no filler, no preamble.
 Reply in plain text only (no markdown, no HTML, no bullet lists).`;
 
 export const DOCUMENT_SYSTEM = `You write documents as HTML for an in-app editor.

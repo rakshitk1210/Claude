@@ -23,7 +23,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { isStreaming, setStreaming, homePrompt } = useAppStore();
-  const { versions, setViewingVersion, addVersion } = useVersionStore();
+  const { versions, viewingVersion, setViewingVersion, addVersion } = useVersionStore();
   const { messages, addMessage, appendToMessage, updateMessage, toggleDeleted } = useChatStore();
 
   const scrollToBottom = useCallback(() => {
@@ -53,8 +53,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           content: m.content,
         }));
 
+      const currentVersion = useVersionStore.getState().versions[viewingVersion];
+      const currentHtml = currentVersion?.revisions[currentVersion.currentRevision] ?? '';
+      let docText = '';
+      if (currentHtml) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = currentHtml;
+        docText = tmp.textContent?.trim() ?? '';
+      }
+
       const seedContent = homePrompt.trim() || 'Document request';
-      const seedMessage = { role: 'user' as const, content: seedContent };
+      const contextualSeed = docText
+        ? `${seedContent}\n\nCurrent document:\n${docText}`
+        : seedContent;
+      const seedMessage = { role: 'user' as const, content: contextualSeed };
       const payload = [seedMessage, ...apiMessages];
 
       const controller = new AbortController();
@@ -111,6 +123,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     [
       isStreaming,
       homePrompt,
+      viewingVersion,
       addMessage,
       appendToMessage,
       updateMessage,
