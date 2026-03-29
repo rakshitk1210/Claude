@@ -58,7 +58,7 @@ export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({
   const renderedRef = useRef(false);
   const { versions, navigateRevision } = useVersionStore();
   const { setStreaming } = useAppStore();
-  const { toggleCardSelection, selectedCards } = useCanvasStore();
+  const { toggleCardSelection, selectedCards, updateSidebarPanel } = useCanvasStore();
 
   useDraggable(cardRef, panel.id, undefined, '[data-drag-handle]');
 
@@ -91,6 +91,7 @@ export const IterSidebarCard: React.FC<IterSidebarCardProps> = ({
         cancelStream = streamInto(body, html, () => {
           setStreaming(false);
           body.contentEditable = 'true';
+          updateSidebarPanel(panel.id, { needsStream: false });
         });
       }, 140 + Math.random() * 80);
     } else {
