@@ -29,7 +29,8 @@ Rules:
 - Use <p> elements for every paragraph. For multi-line sign-offs or stacked lines, use one <p> with <br> between lines.
 - Tone: simple, clean, humble, and to the point unless the document calls for a different register.
 - Do NOT use bracket placeholders like [X] or [Your Name].
-- Apply the requested changes while keeping the rest of the document intact.`;
+- Apply the requested changes while keeping the rest of the document intact.
+- Never ask for clarification or additional information. If the instruction is ambiguous, apply a reasonable interpretation and output the full revised document.`;
 
 export function extractDocumentHtml(raw: string): string {
   const trimmed = raw.trim();

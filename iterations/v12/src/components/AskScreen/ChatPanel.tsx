@@ -89,15 +89,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           }
           const currentHtml = currentVersion.revisions[currentVersion.currentRevision];
 
-          // Use the AI's chat response as the revision instruction so the model
-          // knows what specifically to change, not just the user's raw message.
-          const allMsgs = useChatStore.getState().messages;
-          const lastAiMsg = [...allMsgs].reverse().find((m) => m.role === 'ai' && m.content);
-          const revisionInstruction = lastAiMsg?.content
-            ? `User request: ${text}\n\nAssistant guidance: ${lastAiMsg.content}`
-            : text;
-
-          documentRevise(currentHtml, revisionInstruction)
+          documentRevise(currentHtml, text)
             .then((revisedHtml) => {
               const verNum = curVersions.length + 1;
               const label = `Version ${verNum}`;
