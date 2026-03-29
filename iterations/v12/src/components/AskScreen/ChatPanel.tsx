@@ -89,7 +89,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           }
           const currentHtml = currentVersion.revisions[currentVersion.currentRevision];
 
-          documentRevise(currentHtml, text)
+          const revisionInstruction = homePrompt.trim()
+            ? `Original document request: ${homePrompt.trim()}\n\nChange request: ${text}`
+            : text;
+
+          documentRevise(currentHtml, revisionInstruction)
             .then((revisedHtml) => {
               const verNum = curVersions.length + 1;
               const label = `Version ${verNum}`;
