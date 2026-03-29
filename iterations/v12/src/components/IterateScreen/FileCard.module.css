@@ -2,7 +2,7 @@
   width: 290px;
   padding: 14px 16px;
   background: var(--bg-card);
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   transition: border-color 160ms, box-shadow 160ms;
 }
