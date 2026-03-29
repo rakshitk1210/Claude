@@ -12,7 +12,8 @@ import { generateDocument } from './api/generateDocument';
 import styles from './App.module.css';
 
 const App: React.FC = () => {
-  const { screenMode, setScreenMode, setStreaming, setDocTitle } = useAppStore();
+  const { screenMode, setScreenMode, setStreaming, setDocTitle, setHomePrompt } =
+    useAppStore();
   const { addVersion } = useVersionStore();
   const [homeHiding, setHomeHiding] = useState(false);
   const homeSubmitLock = useRef(false);
@@ -24,6 +25,7 @@ const App: React.FC = () => {
 
       const short = text.length > 40 ? text.slice(0, 38) + '\u2026' : text;
       setDocTitle(short);
+      setHomePrompt(text);
 
       setStreaming(true);
       setHomeHiding(true);
@@ -39,7 +41,7 @@ const App: React.FC = () => {
         addVersion(html, 'Version 1');
       })();
     },
-    [setDocTitle, addVersion, setStreaming, setScreenMode]
+    [setDocTitle, setHomePrompt, addVersion, setStreaming, setScreenMode]
   );
 
   const handleModeChange = useCallback(

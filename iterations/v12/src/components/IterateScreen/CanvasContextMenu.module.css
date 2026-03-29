@@ -35,3 +35,24 @@
 .deleteItem:hover {
   background: rgba(217, 48, 37, 0.07);
 }
+
+.duplicateItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-pri, #1a1a1a);
+  font-size: 13.5px;
+  font-family: inherit;
+  text-align: left;
+  transition: background 80ms ease;
+}
+
+.duplicateItem:hover {
+  background: rgba(0, 0, 0, 0.05);
+}

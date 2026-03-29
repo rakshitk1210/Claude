@@ -22,7 +22,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const { isStreaming, setStreaming } = useAppStore();
+  const { isStreaming, setStreaming, homePrompt } = useAppStore();
   const { versions, setViewingVersion, addVersion } = useVersionStore();
   const { messages, addMessage, appendToMessage, updateMessage, toggleDeleted } = useChatStore();
 
@@ -53,10 +53,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           content: m.content,
         }));
 
-      const seedMessage = {
-        role: 'user' as const,
-        content: 'Help me draft a cover letter for a role at Anthropic',
-      };
+      const seedContent = homePrompt.trim() || 'Document request';
+      const seedMessage = { role: 'user' as const, content: seedContent };
       const payload = [seedMessage, ...apiMessages];
 
       const controller = new AbortController();
@@ -110,7 +108,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         },
       });
     },
-    [isStreaming, addMessage, appendToMessage, updateMessage, setStreaming, scrollToBottom, addVersion, setViewingVersion]
+    [
+      isStreaming,
+      homePrompt,
+      addMessage,
+      appendToMessage,
+      updateMessage,
+      setStreaming,
+      scrollToBottom,
+      addVersion,
+      setViewingVersion,
+    ]
   );
 
   const handleStop = useCallback(() => {
@@ -132,14 +140,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           <ChatMessage
             id="initial-user"
             role="user"
-            content="Help me draft a cover letter for a role at Anthropic"
+            content={homePrompt.trim() || 'Your request'}
             onDelete={() => {}}
           />
 
           {!docHidden && (
             <div className={styles.msgGroup}>
               <p className={styles.aiLabel}>
-                Here is a cover letter generated for your role at anthropic
+                Here&apos;s your generated document.
               </p>
               {initialVersion && (
                 <InlineDocCard

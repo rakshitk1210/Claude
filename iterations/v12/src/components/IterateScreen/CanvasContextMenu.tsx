@@ -4,12 +4,13 @@ import styles from './CanvasContextMenu.module.css';
 interface CanvasContextMenuProps {
   x: number;
   y: number;
+  onDuplicate: () => void;
   onDelete: () => void;
   onClose: () => void;
 }
 
 export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
-  x, y, onDelete, onClose,
+  x, y, onDuplicate, onDelete, onClose,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -24,7 +25,7 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
   }, [onClose]);
 
   const clampedX = Math.min(x, window.innerWidth - 160);
-  const clampedY = Math.min(y, window.innerHeight - 60);
+  const clampedY = Math.min(y, window.innerHeight - 96);
 
   return (
     <div
@@ -33,8 +34,26 @@ export const CanvasContextMenu: React.FC<CanvasContextMenuProps> = ({
       style={{ left: clampedX, top: clampedY }}
     >
       <button
+        type="button"
+        className={styles.duplicateItem}
+        onClick={() => {
+          onDuplicate();
+          onClose();
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+        Duplicate
+      </button>
+      <button
+        type="button"
         className={styles.deleteItem}
-        onClick={() => { onDelete(); onClose(); }}
+        onClick={() => {
+          onDelete();
+          onClose();
+        }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="3 6 5 6 21 6" />
