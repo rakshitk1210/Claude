@@ -7,6 +7,10 @@ import { useVersionStore } from '../../store/versionStore';
 import { useChatStore } from '../../store/chatStore';
 import { streamChat } from '../../api/streamChat';
 import { documentRevise } from '../../api/documentRevise';
+import {
+  buildRevisionInstruction,
+  buildStreamChatPayload,
+} from '../../lib/askStyleDocumentTurn';
 import styles from './ChatPanel.module.css';
 
 interface ChatPanelProps {
@@ -45,29 +49,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       setStreaming(true);
       setTimeout(scrollToBottom, 50);
 
-      const allMessages = useChatStore.getState().messages;
-      const apiMessages = allMessages
-        .filter((m) => !m.deleted && (m.role === 'user' || m.role === 'ai') && m.content)
-        .map((m) => ({
-          role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
-          content: m.content,
-        }));
-
       const currentVersion = useVersionStore.getState().versions[viewingVersion];
       const currentHtml = currentVersion?.revisions[currentVersion.currentRevision] ?? '';
-      let docText = '';
-      if (currentHtml) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = currentHtml;
-        docText = tmp.textContent?.trim() ?? '';
-      }
-
-      const seedContent = homePrompt.trim() || 'Document request';
-      const contextualSeed = docText
-        ? `${seedContent}\n\nCurrent document:\n${docText}`
-        : seedContent;
-      const seedMessage = { role: 'user' as const, content: contextualSeed };
-      const payload = [seedMessage, ...apiMessages];
+      const payload = buildStreamChatPayload(
+        homePrompt,
+        currentHtml,
+        useChatStore.getState().messages
+      );
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -89,11 +77,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           }
           const currentHtml = currentVersion.revisions[currentVersion.currentRevision];
 
-          const revisionInstruction = homePrompt.trim()
-            ? `Original document request: ${homePrompt.trim()}\n\nChange request: ${text}`
-            : text;
-
-          documentRevise(currentHtml, revisionInstruction)
+          documentRevise(
+            currentHtml,
+            buildRevisionInstruction(homePrompt, text)
+          )
             .then((revisedHtml) => {
               const verNum = curVersions.length + 1;
               const label = `Version ${verNum}`;

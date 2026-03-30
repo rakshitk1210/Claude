@@ -14,6 +14,12 @@ import { useAppStore } from '../../store/appStore';
 import { useChatStore } from '../../store/chatStore';
 import { useStreamText } from '../../hooks/useStreamText';
 import { generateDocument } from '../../api/generateDocument';
+import { streamChat } from '../../api/streamChat';
+import { documentRevise } from '../../api/documentRevise';
+import {
+  buildRevisionInstruction,
+  buildStreamChatPayload,
+} from '../../lib/askStyleDocumentTurn';
 import styles from './IterateScreen.module.css';
 
 const PANEL_SPACING = 830;
@@ -54,6 +60,9 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
   const { versions, addVersion } = useVersionStore();
   const { isStreaming, setStreaming, screenMode, homePrompt } = useAppStore();
   const { abort } = useStreamText();
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const pendingPanelIdRef = useRef<string | null>(null);
+  const iterationCancelRef = useRef(false);
 
   useEffect(() => {
     if (!visible || versions.length === 0) return;
@@ -108,6 +117,7 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
   const handleCanvasSubmit = useCallback(
     (text: string) => {
       if (isStreaming) return;
+      iterationCancelRef.current = false;
       setStreaming(true);
 
       if (!iterCanvasReady) setIterCanvasReady(true);
@@ -126,6 +136,7 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
       // Mirror the user prompt into chatStore so Ask mode sees it
       const userId = 'user-' + Date.now();
       useChatStore.getState().addMessage({ id: userId, role: 'user', content: text });
+      pendingPanelIdRef.current = panelId;
 
       if (panelsBefore.length > 0) {
         const paneW = paneRef.current?.clientWidth || 1200;
@@ -143,40 +154,132 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
       }
 
       void (async () => {
-        const { versions: latestVersions } = useVersionStore.getState();
+        if (iterationCancelRef.current) return;
+
+        const chat = useChatStore.getState();
+        const { versions: latestVersions, viewingVersion } =
+          useVersionStore.getState();
+        const currentVersion = latestVersions[viewingVersion];
+        const currentHtml =
+          currentVersion?.revisions[currentVersion.currentRevision] ?? '';
+        const revisable = currentHtml.trim().length > 0;
+
         const verNum = latestVersions.length + 1;
         const label = `Version ${verNum}`;
 
-        let html: string;
-        try {
-          html = await generateDocument(text);
-        } catch {
-          removeSidebarPanel(panelId);
-          useChatStore.getState().removeMessage(userId);
+        const finishSuccess = (verIdx: number) => {
+          pendingPanelIdRef.current = null;
+          streamAbortRef.current = null;
+          updateSidebarPanel(panelId, {
+            verIdx,
+            needsStream: true,
+          });
+          const docId = 'doc-' + Date.now();
+          chat.addMessage({
+            id: docId,
+            role: 'doc-card',
+            content: label,
+            versionIdx: verIdx,
+            label,
+          });
+        };
+
+        if (!revisable) {
+          let html: string;
+          try {
+            html = await generateDocument(text);
+          } catch {
+            removeSidebarPanel(panelId);
+            chat.removeMessage(userId);
+            pendingPanelIdRef.current = null;
+            setStreaming(false);
+            return;
+          }
+
+          if (iterationCancelRef.current) {
+            pendingPanelIdRef.current = null;
+            setStreaming(false);
+            return;
+          }
+
+          const verIdx = addVersion(html, label);
+          finishSuccess(verIdx);
           setStreaming(false);
           return;
         }
 
-        const verIdx = addVersion(html, label);
-        updateSidebarPanel(panelId, {
-          verIdx,
-          needsStream: true,
-        });
+        const aiId = 'ai-' + Date.now();
+        chat.addMessage({ id: aiId, role: 'ai', content: '' });
 
-        // Mirror the resulting version into chatStore so Ask mode shows the doc card
-        const docId = 'doc-' + Date.now();
-        useChatStore.getState().addMessage({
-          id: docId,
-          role: 'doc-card',
-          content: label,
-          versionIdx: verIdx,
-          label,
+        const controller = new AbortController();
+        streamAbortRef.current = controller;
+
+        const payload = buildStreamChatPayload(
+          homePrompt,
+          currentHtml,
+          useChatStore.getState().messages
+        );
+
+        streamChat(payload, {
+          signal: controller.signal,
+          onDelta: (chunk) => {
+            chat.appendToMessage(aiId, chunk);
+          },
+          onDone: () => {
+            streamAbortRef.current = null;
+
+            if (iterationCancelRef.current) {
+              pendingPanelIdRef.current = null;
+              setStreaming(false);
+              return;
+            }
+
+            const { versions: curVersions, viewingVersion: vv } =
+              useVersionStore.getState();
+            const cv = curVersions[vv];
+            if (!cv) {
+              pendingPanelIdRef.current = null;
+              setStreaming(false);
+              return;
+            }
+            const htmlForRevise = cv.revisions[cv.currentRevision];
+
+            documentRevise(
+              htmlForRevise,
+              buildRevisionInstruction(homePrompt, text)
+            )
+              .then((revisedHtml) => {
+                if (iterationCancelRef.current) return;
+                const verIdx = addVersion(revisedHtml, label);
+                finishSuccess(verIdx);
+              })
+              .catch(() => {
+                removeSidebarPanel(panelId);
+                pendingPanelIdRef.current = null;
+              })
+              .finally(() => {
+                setStreaming(false);
+              });
+          },
+          onError: (error) => {
+            streamAbortRef.current = null;
+            if (iterationCancelRef.current) {
+              pendingPanelIdRef.current = null;
+              setStreaming(false);
+              return;
+            }
+            chat.updateMessage(aiId, `Error: ${error}`);
+            removeSidebarPanel(panelId);
+            pendingPanelIdRef.current = null;
+            setStreaming(false);
+          },
         });
       })();
     },
     [
       isStreaming,
       setStreaming,
+      homePrompt,
       iterCanvasReady,
       setIterCanvasReady,
       addVersion,
@@ -189,9 +292,17 @@ export const IterateScreen: React.FC<IterateScreenProps> = ({
   );
 
   const handleStop = useCallback(() => {
+    iterationCancelRef.current = true;
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    const pid = pendingPanelIdRef.current;
+    if (pid) {
+      removeSidebarPanel(pid);
+      pendingPanelIdRef.current = null;
+    }
     abort();
     setStreaming(false);
-  }, [abort, setStreaming]);
+  }, [abort, removeSidebarPanel, setStreaming]);
 
   const autoPanToCard = useCallback((el: HTMLElement) => {
     requestAnimationFrame(() => {

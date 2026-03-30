@@ -53,7 +53,7 @@ export function usePanZoom(paneRef: React.RefObject<HTMLDivElement | null>) {
       if (e.ctrlKey) {
         // Pinch gesture — browser sets ctrlKey=true for trackpad pinch
         const r = pane.getBoundingClientRect();
-        zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.098 : 1 / 1.098);
+        zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.088 : 1 / 1.088);
       } else {
         // Two-finger swipe — pan the canvas
         const { camX, camY, camScale, setCam } = useCanvasStore.getState();
