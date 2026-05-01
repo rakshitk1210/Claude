@@ -370,6 +370,22 @@
 
     .brief-stat-label { font-size: 13px; color: var(--text-300); line-height: 1.4; }
 
+    .demo-video {
+      margin-bottom: 56px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border-card);
+      box-shadow: var(--shadow-card);
+      background: #1c1917;
+    }
+
+    .demo-video video {
+      width: 100%;
+      display: block;
+      max-height: 520px;
+      object-fit: cover;
+    }
+
     @media (max-width: 640px) {
       main { padding: 40px 20px 60px; }
       header { padding: 0 20px; }
@@ -405,6 +421,10 @@
       <div class="hero-label">Design Exploration</div>
       <h1 class="hero-title">Iterating on the<br><em>refinement experience</em></h1>
       <p class="hero-desc">Each version explores a different approach to how people navigate, edit, and compare AI-generated content. Start with the original, then explore where each iteration takes it.</p>
+    </div>
+
+    <div class="demo-video">
+      <video src="demo.mp4" autoplay muted loop playsinline controls></video>
     </div>
 
     <div class="section-header">
